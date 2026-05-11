@@ -22,7 +22,7 @@ class GraphManager {
 
   // Initialize a fresh graph.
   void reset();
-
+ 
   // Could change an index to break down the graph into sug-graphs.
   int generateSubgraphIndex();
   // Generate ID for new vertex.
@@ -31,7 +31,13 @@ class GraphManager {
   // Basic functions on graph including add new vertex and edge.
   void addVertex(Vertex* v);
   void addEdge(Vertex* v, Vertex* u, double weight);
+  void addEdgeMerging(Vertex* v, Vertex* u, double weight); // ARS contol
   void removeEdge(Vertex* v, Vertex* u);
+  void removeEdgeMerging(int v_id, int u_id); // ARS contol
+  void removeVertex(Vertex* u); // ARS contol
+
+  // Getting the vertices vertex v is connected via and edge (ARS contol)
+  void getAdjacentVertices(Vertex* v, std::vector<int>& adjacent_vertices);
 
   int getNumVertices() { return graph_->getNumVertices(); }
   int getNumEdges() { return graph_->getNumEdges(); }
@@ -63,6 +69,9 @@ class GraphManager {
                                Vertex** v_res);
   bool getNearestVertices(const StateVec* state, double range,
                           std::vector<Vertex*>* v_res);
+
+  bool getNearestVertices_modified(const StateVec* state, double range,
+                          std::vector<Vertex*>* v_res);
   bool existVertexInRange(const StateVec* state, double range);
 
   void updateVertexTypeInRange(StateVec& state, double range);
@@ -76,6 +85,10 @@ class GraphManager {
   // A wrapper on top of Boost Graph Lib.
   // Maintain a simple graph with IDs and weights.
   std::shared_ptr<Graph> graph_;
+
+  //<query_vertex_id, list of neighbour vertices>
+  std::unordered_map<int, std::vector<Vertex*>> group_vertices_; // ARS control
+  
   // Mapping from vertex id to vertex property.
   std::unordered_map<int, Vertex*> vertices_map_;
   std::map<int, std::vector<std::pair<int, double>>>

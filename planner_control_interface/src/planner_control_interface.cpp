@@ -290,11 +290,27 @@ bool PlannerControlInterface::searchCallback(
 bool PlannerControlInterface::globalPlannerCallback(
     planner_msgs::pci_global::Request& req,
     planner_msgs::pci_global::Response& res) {
+  
+  // ARS Control
+  // Stop local auto planner immediately.
+  trigger_mode_ = PlannerTriggerModeType::kManual;
+  run_en_ = false;
+  search_request_ = false;
+  homing_request_ = false;
+  init_request_ = false;
+  go_to_waypoint_request_ = false;
+  go_to_waypoint_with_checking_ = false;
+
+  pci_manager_->stopPCI();
+  current_path_.clear();
+  // ARS Control
+
   global_request_ = true;
   exe_path_en_ = !req.not_exe_path;
   bound_mode_ = req.bound_mode;
   frontier_id_ = req.id;
   pci_global_request_params_ = req;
+   restore_auto_after_global_ = req.set_auto; // ARS Control
   res.success = true;
   return true;
 }
@@ -505,6 +521,7 @@ bool PlannerControlInterface::init() {
   search_request_ = false;
   global_request_ = false;
   stop_planner_request_ = false;
+  restore_auto_after_global_ = false; //ARS Control
   passing_gate_request_ = false;
   passing_gate_success_ = false;
   go_to_waypoint_request_ = false;
@@ -694,12 +711,10 @@ void PlannerControlInterface::runPassingGate() {
 void PlannerControlInterface::runGlobalPlanner(bool exe_path = false) {
   ROS_INFO_COND(global_verbosity >= Verbosity::PLANNER_STATUS, "Planning iteration %i",
                 planner_iteration_);
-
   planner_msgs::planner_set_planning_mode planning_mode_srv;
   planning_mode_srv.request.planning_mode =
       planner_msgs::planner_set_planning_mode::Request::kManual;
   planner_set_trigger_mode_client_.call(planning_mode_srv);
-
   planner_msgs::planner_global plan_srv;
   plan_srv.request.id = pci_global_request_params_.id;
   plan_srv.request.not_check_frontier =
@@ -712,6 +727,13 @@ void PlannerControlInterface::runGlobalPlanner(bool exe_path = false) {
       pci_manager_->executePath(plan_srv.response.path, path_to_be_exe,
                                 PCIManager::ExecutionPathType::kGlobalPath);
       current_path_ = path_to_be_exe;
+      // ARS Control
+      if (restore_auto_after_global_) {
+        trigger_mode_ = PlannerTriggerModeType::kAuto;
+        restore_auto_after_global_ = false;
+        ROS_INFO("Global repositioning path dispatched. Auto local planning will resume when PCI is ready.");
+      }
+      // ARS Control
     } else {
       ROS_WARN_THROTTLE(1, "Will not execute the path.");
       ros::Duration(0.5).sleep();

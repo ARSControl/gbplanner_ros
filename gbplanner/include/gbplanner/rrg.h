@@ -12,6 +12,9 @@
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/Polygon.h>
 #include <geometry_msgs/PolygonStamped.h>
+
+#include <geometry_msgs/PoseArray.h>
+
 #include <kdtree/kdtree.h>
 #include <pcl/common/distances.h>
 #include <pcl/filters/crop_box.h>
@@ -46,6 +49,10 @@
 #include "planner_msgs/planner_dynamic_global_bound.h"
 #include "planner_msgs/planner_srv.h"
 #include "planner_semantic_msgs/SemanticPoint.h"
+
+#include "planner_msgs/Merge.h"
+#include "planner_msgs/CommunicationTrigger.h"
+#include "planner_msgs/pci_global.h"
 
 // Publish all gbplanner rviz topics or not.
 #define FULL_PLANNER_VIZ 1
@@ -194,7 +201,6 @@ class Rrg {
                                     const double& heading,
                                     Eigen::Vector3d& robot_size,
                                     std::vector<geometry_msgs::Pose>& path);
-
   bool isPathCollisionFree(const std::vector<geometry_msgs::Pose>& path,
                            const Eigen::Vector3d& robot_size);
 
@@ -275,6 +281,33 @@ class Rrg {
   ros::Publisher free_cloud_pub_;
   ros::Publisher time_log_pub_;
   ros::Publisher pci_reset_pub_;
+  
+  // ARS control
+  // Publishers
+  ros::Publisher global_graph_pub_;
+  ros::Publisher gmm_pub_;
+
+  // Subscribers
+  ros::Subscriber merged_global_graph_subscriber_;
+  std::vector<ros::Subscriber> graph_subscribers_;
+
+  std::unordered_map<int, ros::Publisher> graph_publishers_;
+  // ros::Timer global_graph_pub_timer_;
+  ros::Subscriber global_graph_sub_;
+  ros::Subscriber received_graph_sub_;
+
+  // void publishGlobalGraphTimerCallback(const ros::TimerEvent& event);
+  void publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg);
+  void initializeMultiRobotGraphSubscriptions();
+  void receivedNeighbourGraph(const planner_msgs::Graph& graph_msg);
+  void mergedGraphCallback(const planner_msgs::Graph& graph_msg);
+  ros::ServiceClient trigger_global_planner_;
+
+  // To stop callback accessing the global graph while modifying it
+  bool require_merging = false;
+
+  int robot_id;
+  // ARS control
 
   ros::Subscriber semantics_subscriber_;
   ros::Subscriber stop_srv_subscriber_;

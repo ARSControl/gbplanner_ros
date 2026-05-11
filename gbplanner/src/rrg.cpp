@@ -5,6 +5,8 @@
 #include <pcl/common/transforms.h>
 #include <tf/transform_listener.h>
 
+#include <geometry_msgs/PoseArray.h>
+
 #define SQ(x) (x * x)
 
 namespace explorer {
@@ -21,8 +23,8 @@ Rrg::Rrg(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private)
 }
 
 Rrg::Rrg(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private,
-         MapManagerVoxblox<MapManagerVoxbloxServer, MapManagerVoxbloxVoxel>*
-             map_manager)
+        MapManagerVoxblox<MapManagerVoxbloxServer, MapManagerVoxbloxVoxel>*
+            map_manager)
     : nh_(nh), nh_private_(nh_private), map_manager_(map_manager) {
   adaptive_obb_ = new AdaptiveObb(map_manager_);
 
@@ -90,7 +92,7 @@ void Rrg::initializeAttributes() {
       nh_.subscribe("semantic_location", 100, &Rrg::semanticsCallback, this);
 
   stop_srv_subscriber_ = nh_.subscribe("planner_control_interface/stop_request",
-                                       100, &Rrg::stopMsgCallback, this);
+                                      100, &Rrg::stopMsgCallback, this);
 
   time_log_pub_ =
       nh_.advertise<std_msgs::Float32MultiArray>("gbp_time_log", 10);
@@ -101,7 +103,124 @@ void Rrg::initializeAttributes() {
       "land_srv");  // The service name should be remapped in the launch file
 
   listener_ = new tf::TransformListener();
+
+  // ARS Control
+  // Take the number of robots dynamically
+  int num_robots;
+  nh_.getParam("/num_robots", num_robots);
+
+  // Take the robot id from the namespace
+  std::string ns = ros::this_node::getNamespace();
+  if (!ns.empty() && ns[0] == '/'){
+      ns = ns.substr(1);
+  }
+  size_t slash = ns.find('/');
+  std::string robot_ns = ns.substr(0, slash);
+  size_t underscore = robot_ns.find_last_of('_');
+  robot_id = std::stoi(robot_ns.substr(underscore + 1));
+
+  // Create the publishers to publish the own graph to other robots
+  for(int i=1; i<=num_robots; ++i){
+    if(i == robot_id) continue;
+    graph_publishers_[i] = nh_.advertise<planner_msgs::Graph>(
+      "/rmf_obelix_" + std::to_string(i) + "/global_graph_in",
+      10
+    );
+  }
+
+  // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(50.0),&Rrg::publishGlobalGraphTimerCallback, this);
+  global_graph_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
+
+  received_graph_sub_ =  nh_.subscribe("global_graph_in", 10, &Rrg::receivedNeighbourGraph, this);
+
+  gmm_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/evaluate_gmm", 10);
+
+  merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
+  trigger_global_planner_ = nh_.serviceClient<planner_msgs::pci_global>("pci_global");
 }
+
+// Publishes the own global graph into the topic using a timer
+// void Rrg::publishGlobalGraphTimerCallback(const ros::TimerEvent& event){
+//   planner_msgs::Graph global_graph_msg;
+//   global_graph_->convertGraphToMsg(global_graph_msg);
+//   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",global_graph_msg.vertices.size(), global_graph_msg.edges.size());
+//   global_graph_pub_.publish(global_graph_msg);
+// }
+
+// Publish the global graph into the topic of the robot in communication range
+void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg){
+  if(global_graph_->vertices_map_.size() < 2){
+    ROS_INFO("[%d] Own global graph contains less than two vertices, skipping the merging procedure.", robot_id);
+  }else{
+    planner_msgs::Graph global_graph_msg;
+    int neighbour_id;
+    global_graph_->convertGraphToMsg(global_graph_msg);
+
+    // Take the id of the robot in communication range to exchange graphs
+    if(trigger_msg.robot_a == robot_id){
+      neighbour_id = trigger_msg.robot_b;
+    } else{
+      neighbour_id = trigger_msg.robot_a;
+    }
+    ROS_INFO("[%d] Publishing global graph with %zu nodes and %zu edges to robot %d", robot_id, global_graph_msg.vertices.size(), global_graph_msg.edges.size(), neighbour_id);
+
+    graph_publishers_[neighbour_id].publish(global_graph_msg);
+    // global_graph_pub_.publish(global_graph_msg);
+  }
+}
+
+// Publish both graphs to the Gaussian Mixture Model node for nodes filtering
+void Rrg::receivedNeighbourGraph(const planner_msgs::Graph& graph_msg) {
+  ROS_INFO("[%d] Received global graph msg with %zu nodes and %zu edges", robot_id, graph_msg.vertices.size(), graph_msg.edges.size());
+
+  require_merging = true;
+  global_graph_update_timer_.stop();
+  global_graph_frontier_addition_timer_.stop();
+  periodic_timer_.stop();
+
+  planner_msgs::Graph my_graph;
+  global_graph_->convertGraphToMsg(my_graph);
+
+  planner_msgs::Merge graphs_to_merge;
+  graphs_to_merge.input_graph = my_graph;
+  graphs_to_merge.neighbour_graph = graph_msg;
+
+  gmm_pub_.publish(graphs_to_merge);
+}
+
+// Substitution of the old global graph with the merged one
+void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
+  ROS_INFO("[%d] Received merged global graph msg with %zu nodes and %zu edges", robot_id, graph_msg.vertices.size(), graph_msg.edges.size());
+
+  global_graph_->reset();
+  ROS_INFO("Converting the message into a graph...");
+  global_graph_->convertMsgToGraph(graph_msg);
+  ROS_INFO("Graph correctly converted!");
+
+  visualization_->visualizeGlobalGraph(global_graph_); 
+
+  require_merging = false;
+  global_graph_update_timer_.start();
+  global_graph_frontier_addition_timer_.start(); 
+  periodic_timer_.start();
+
+  // Set the request for running the global graph for frontier repositioning after communication
+  planner_msgs::pci_global srv;
+  srv.request.not_exe_path = false;
+  srv.request.set_auto = true;
+  srv.request.bound_mode = 0;
+  srv.request.vel_max = 0.0;
+  srv.request.id = 0;
+  srv.request.not_check_frontier = false;
+  srv.request.ignore_time = false;
+
+  if (trigger_global_planner_.call(srv) && srv.response.success) {
+    ROS_INFO("Triggered global planner after graph merge.");
+  } else {
+    ROS_ERROR("Failed to trigger global planner after graph merge.");
+  }
+}
+// ARS Control
 
 void Rrg::reset() {
   // Check if the local graph frontiers have been added to the global graph
@@ -285,6 +404,7 @@ bool Rrg::sampleVertex(RandomSampler& random_sampler, StateVec& root_state,
   reduced_global_space.max_val -= 0.5 * robot_box_size_;
   while (!found && while_thres--) {
     hanging = false;
+    // Generate a random state around the root_state(centroid_state for expandGlobalGraphTimercallback)
     random_sampler.generate(root_state, state);
     Eigen::Vector3d sample = state.head(3);
     if (!reduced_global_space.isInsideSpace(sample)) continue;
@@ -506,6 +626,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
   // Find nearest neighbour
   // StateVec &new_state = new_vertex->state;
   Vertex* nearest_vertex = NULL;
+  // Find the nearest vertex of the sampled
   if (!graph_manager->getNearestVertex(&new_state, &nearest_vertex)) {
     rep.status = ExpandGraphStatus::kErrorKdTree;
     return;
@@ -612,6 +733,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
     graph_manager->addVertex(new_vertex);
     ++rep.num_vertices_added;
     rep.vertex_added = new_vertex;
+    // ROS_INFO("EXPAND: Adding edge [%d] [%d] weight [%f]", new_vertex->id, nearest_vertex->id, direction_norm);
     graph_manager->addEdge(new_vertex, nearest_vertex, direction_norm);
     ++rep.num_edges_added;
     // Form more edges from neighbors if set RRG mode.
@@ -756,13 +878,14 @@ void Rrg::expandGraphEdges(std::shared_ptr<GraphManager> graph_manager,
   rep.status = ExpandGraphStatus::kSuccess;
 }
 
+// This is the one run of expandGraph
 void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
                       Vertex& new_vertex, ExpandGraphReport& rep,
                       bool allow_short_edge) {
-  // Find nearest neighbour
+  // Take the new sample
   StateVec new_state;
   new_state = new_vertex.state;
-
+  // Find the nearest vertex to this new sample
   Vertex* nearest_vertex = NULL;
   if (!graph_manager->getNearestVertex(&new_state, &nearest_vertex)) {
     rep.status = ExpandGraphStatus::kErrorKdTree;
@@ -778,10 +901,14 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
                          nearest_vertex->state[2]);
   Eigen::Vector3d direction(new_state[0] - origin[0], new_state[1] - origin[1],
                             new_state[2] - origin[2]);
+  // Compute the distance between the new sample and its closest neighbour of the global graph (edge lenght)
   double direction_norm = direction.norm();
-
+  
+  // If the distance exceeds the maximum allowed edge lenght 
   if (direction_norm > planning_params_.edge_length_max) {
+    // Set the distance to the maximum edge lenght keeping the same direction
     direction = planning_params_.edge_length_max * direction.normalized();
+    // If the edge is too short (sample too close to its neighbours) skip and discard that connection and discard the sample
   } else if ((!allow_short_edge) &&
              (direction_norm <= planning_params_.edge_length_min)) {
     // Should not add short edge.
@@ -791,6 +918,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
 
   // Recalculate the distance.
   direction_norm = direction.norm();
+  // Set the new position of the new vertex to nearest neighbour + distance to its neighbour
   new_state[0] = origin[0] + direction[0];
   new_state[1] = origin[1] + direction[1];
   new_state[2] = origin[2] + direction[2];
@@ -813,6 +941,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
 
   // Since we are buiding graph,
   // Consider to check the overshoot for both 2 directions except root node.
+  // Consider the robot size to avoid collisions when reaching the new sample
   Eigen::Vector3d overshoot_vec =
       planning_params_.edge_overshoot * direction.normalized();
   Eigen::Vector3d start_pos = origin + robot_params_.center_offset;
@@ -832,6 +961,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
   bool admissible_edge = false;
   int steep_edges = 0;
   std::vector<Eigen::Vector3d> projected_edge;
+  // Checks if the straight path is collision free
   if (robot_params_.type == RobotType::kAerialRobot) {
     MapManager::VoxelStatus vs =
         map_manager_->getPathStatus(start_pos, end_pos, robot_box_size_, true);
@@ -865,10 +995,12 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
       ++steep_edges;
   }
 
+  // If the edge is admissible add the new sample to the global graph
   if (admissible_edge) {
     Vertex* new_vertex_ptr =
         new Vertex(graph_manager->generateVertexID(), new_state);
     // new_vertex_ptr->id = graph_manager->generateVertexID();
+    // ROS_INFO("EXPAND GRAPH: Creating vertex ID [%d]", new_vertex_ptr->id);
     new_vertex_ptr->state = new_state;
     // Form a tree as the first step.
     new_vertex_ptr->parent = nearest_vertex;
@@ -878,6 +1010,7 @@ void Rrg::expandGraph(std::shared_ptr<GraphManager> graph_manager,
     graph_manager->addVertex(new_vertex_ptr);
     ++rep.num_vertices_added;
     rep.vertex_added = new_vertex_ptr;
+    // ROS_INFO("EXPAND: Adding edge [%d] [%d] weight [%f]", new_vertex_ptr->id, nearest_vertex->id, direction_norm);
     graph_manager->addEdge(new_vertex_ptr, nearest_vertex, direction_norm);
     ++rep.num_edges_added;
     if (local_exploration_ongoing_) {
@@ -1822,7 +1955,8 @@ void Rrg::addFrontiers(int best_vertex_id) {
   // into desending list. 4) For each path, check if the frontier is surrounded
   // by normal vertices or any frontiers. If yes, don't add this path;
   // otherwise, add this path to the global graph.
-
+  
+  // Re-evaluation of global frontiers to know if they are still frontiers
   ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Global graph: %d vertices, %d edges.",
            global_graph_->getNumVertices(), global_graph_->getNumEdges());
   bool update_global_frontiers = true;
@@ -1848,6 +1982,7 @@ void Rrg::addFrontiers(int best_vertex_id) {
   std::vector<Vertex*> frontier_vertices;
   for (auto& v : leaf_vertices) {
     if (v->type == VertexType::kFrontier) {
+      // Collect new potential frontiers obtained from the local graph
       frontier_vertices.push_back(v);
     }
   }
@@ -1927,6 +2062,10 @@ void Rrg::freePointCloudtimerCallback(const ros::TimerEvent& event) {
 
 void Rrg::expandGlobalGraphFrontierAdditionTimerCallback(
     const ros::TimerEvent& event) {
+  
+  if(require_merging) return; // ARS control
+
+  // add_frontiers_to_global_graph_ is set to true when running evaluateGraph() function
   if (add_frontiers_to_global_graph_) {
     ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Timer: Adding frontiers to global graph");
     add_frontiers_to_global_graph_ = false;
@@ -1944,6 +2083,8 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
   // this is frontier
   //
 
+  if (require_merging) return; // ARS control
+
   ros::Time time_lim;
   START_TIMER(time_lim);
 
@@ -1953,24 +2094,32 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
   if (update_global_frontiers) {
     std::vector<Vertex*> global_frontiers;
     int num_vertices = global_graph_->getNumVertices();
+    // Take all the global_graph frontiers
     for (int id = 0; id < num_vertices; ++id) {
       if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
         global_frontiers.push_back(global_graph_->getVertex(id));
       }
     }
+    // Re-compute the volumetric gain to asses if it is still a frontier
     for (auto& v : global_frontiers) {
       computeVolumetricGainRayModel(v->state, v->vol_gain);
       if (!v->vol_gain.is_frontier) v->type = VertexType::kUnvisited;
     }
   }
 
+  // Take the unvisited vertices of the global graph
   std::vector<Vertex*> unvisited_vertices;
   int global_graph_size = global_graph_->getNumVertices();
-  for (int id = 0; id < global_graph_size; ++id) {
+  for (int id = 0; id < global_graph_size; ++id) {  
+    if(!global_graph_->getVertex(id)){
+      ROS_ERROR("Vertex %d is NULL!", id);
+    }  
     if (global_graph_->getVertex(id)->type == VertexType::kUnvisited) {
       unvisited_vertices.push_back(global_graph_->getVertex(id));
+    } else{
     }
   }
+
   if (unvisited_vertices.empty()) return;
 
   const double kLocalBoxRadius = 10;
@@ -1979,34 +2128,36 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
   std::vector<Vertex*> unvisited_vertices_remain;
   while (true) {
     unvisited_vertices_remain.clear();
-    // Randomly pick a vertex
+    // Randomly pick a vertex from the unvisited group
     int ind = rand() % (unvisited_vertices.size());
     // Find all vertices nearby this vertex.
     // Compute the centroid of this cluster.
     Eigen::Vector3d cluster_center(0, 0, 0);
     int num_vertices_in_cluster = 0;
+    // Compute the distance between the randomly picked one vertex and all the other unvisited vertices
     for (int i = 0; i < unvisited_vertices.size(); ++i) {
       Eigen::Vector3d dist(
           unvisited_vertices[i]->state.x() - unvisited_vertices[ind]->state.x(),
           unvisited_vertices[i]->state.y() - unvisited_vertices[ind]->state.y(),
           unvisited_vertices[i]->state.z() -
               unvisited_vertices[ind]->state.z());
+      // If the distance between the vertex and the randomly picked one vertex is smaller than the
+      // kLocalBoxRadiusSq they belong to the same cluster and centroid is updated
       if (dist.squaredNorm() <= kLocalBoxRadiusSq) {
         cluster_center =
             cluster_center + Eigen::Vector3d(unvisited_vertices[i]->state.x(),
                                              unvisited_vertices[i]->state.y(),
                                              unvisited_vertices[i]->state.z());
-        ++num_vertices_in_cluster;
+        ++num_vertices_in_cluster; // Increase the number of vertices in the cluster
       } else {
         unvisited_vertices_remain.push_back(unvisited_vertices[i]);
       }
     }
     cluster_center = cluster_center / num_vertices_in_cluster;
-    cluster_centroids.push_back(cluster_center);
+    cluster_centroids.push_back(cluster_center); // Add to the list of centroids
     unvisited_vertices = unvisited_vertices_remain;
     if (unvisited_vertices.empty()) break;
   }
-
   // Expand global graph.
   double time_elapsed = 0;
   int loop_count = 0, loop_count_success = 0;
@@ -2015,13 +2166,15 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
   while (time_elapsed < kGlobalGraphUpdateTimeBudget) {
     time_elapsed = GET_ELAPSED_TIME(time_lim);
     ++loop_count;
+    // Iterate over the centroids list
     for (int i = 0; i < cluster_centroids.size(); ++i) {
       StateVec centroid_state(cluster_centroids[i].x(),
                               cluster_centroids[i].y(),
                               cluster_centroids[i].z(), 0);
       Vertex new_vertex(-1, StateVec::Zero());
+      // Sample a new_vertex around the centroid computed
       if (!sampleVertex(random_sampler_, centroid_state, new_vertex)) continue;
-      if (new_vertex.is_hanging) continue;
+      if (new_vertex.is_hanging) continue; // is_hanging only for legged robots
       if (robot_params_.type == RobotType::kGroundRobot) {
         MapManager::VoxelStatus vs;
         Eigen::Vector3d new_vertex_pos = new_vertex.state.head(3);
@@ -2040,12 +2193,14 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
                                           &s_res);
       if (s_res.size()) continue;
       std::vector<Vertex*> v_res;
+      // Looks for global graph vertices within a range with respect to the new sample (new_vertex)
       global_graph_->getNearestVertices(&new_vertex.state, kSparseRadius,
                                         &v_res);
       if (v_res.size()) continue;
       std::vector<Vertex*> f_res;
       global_graph_->getNearestVertices(&new_vertex.state,
                                         kOverlappedFrontierRadius, &f_res);
+      // Looks for a frontier among the near vertices of the new sample
       bool frontier_existed = false;
       for (auto v : f_res) {
         if (v->type == VertexType::kFrontier) {
@@ -2053,6 +2208,7 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
           break;
         }
       }
+      // If a frontier exists skip and discard the sample otherwise add the sample to the global graph
       if (frontier_existed) continue;
 
       loop_count_success++;
@@ -2074,6 +2230,7 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
 
 void Rrg::semanticsCallback(
     const planner_semantic_msgs::SemanticPoint& semantic) {
+
   std::cout << "Inside semantic callback" << std::endl;
   StateVec* new_state =
       new StateVec(semantic.point.x, semantic.point.y, semantic.point.z, 0.0);
@@ -2162,6 +2319,7 @@ void Rrg::semanticsCallback(
       vert->type = VertexType::kFrontier;
       vert->is_leaf_vertex = true;
       global_graph_->addVertex(vert);
+  
       Eigen::Vector3d tgt_pos(vert->state[0], vert->state[1], vert->state[2]);
       Eigen::Vector3d src_pos(nearest_vertex->state[0],
                               nearest_vertex->state[1],
@@ -3144,6 +3302,7 @@ bool Rrg::setHomingPos() {
     ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Global graph is empty: add current state as homing position.");
     Vertex* g_root_vertex =
         new Vertex(global_graph_->generateVertexID(), current_state_);
+    // ROS_INFO("MAIN: Adding vertex ID [%d]...", g_root_vertex->id);
     global_graph_->addVertex(g_root_vertex);
     return true;
   } else {
@@ -3845,9 +4004,7 @@ std::vector<geometry_msgs::Pose> Rrg::getBestPath(std::string tgt_frame,
   if (Trajectory::interpolatePath(ret, kInterpolationDistance, interp_path)) {
     ret = interp_path;
   }
-
   visualization_->visualizeRefPath(ret);
-
   return ret;
 }
 
@@ -4106,6 +4263,7 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
   StateVec first_state;
   first_state << vertices[0]->state[0], vertices[0]->state[1],
       vertices[0]->state[2], vertices[0]->state[3];
+
   Vertex* nearest_vertex = NULL;
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
     return false;
@@ -4133,6 +4291,7 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
     new_vertex->distance = nearest_vertex->distance + direction_norm;
     nearest_vertex->children.push_back(new_vertex);
     graph_manager->addVertex(new_vertex);
+
     graph_manager->addEdge(new_vertex, nearest_vertex, direction_norm);
     parent_vertex = new_vertex;
   } else {
@@ -4254,11 +4413,14 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
   // We only need to link the first vertex to the existing graph.
   // Then add the whole path to the graph.
   // Finally, add more edges along the path to the graph.
-
+  
+  //If the path is not empty, set the first state to the first point of the path
   StateVec first_state;
   first_state << path[0].position.x, path[0].position.y, path[0].position.z,
       0.0;
   Vertex* nearest_vertex = NULL;
+
+  //Check if there is a near vertex to first state
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
     return false;
   if (nearest_vertex == NULL) return false;
@@ -4267,6 +4429,8 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
   Eigen::Vector3d direction(first_state[0] - origin[0],
                             first_state[1] - origin[1],
                             first_state[2] - origin[2]);
+
+  //Compute the distance between first state and origin (nearest_vertex)
   double direction_norm = direction.norm();
   Vertex* parent_vertex = NULL;
   const double kDeltaLimit = 0.1;
@@ -4274,11 +4438,13 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
 
   // Add root vertex first.
   if (direction_norm <= kDeltaLimit) {
+    //If the distance is smaller than the delta limit parent_vertex==nearest_vertex
     parent_vertex = nearest_vertex;
   } else if (direction_norm <=
              std::max(kRadiusLimit, planning_params_.edge_length_min)) {
     // @TODO: find better way to do this.
     // Blindly add a link/vertex to the graph.
+    //If the nearest vertex is sufficiently far away create a new vertex
     Vertex* new_vertex =
         new Vertex(graph_manager->generateVertexID(), first_state);
     new_vertex->parent = nearest_vertex;
@@ -4390,7 +4556,6 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
       graph_manager->addEdge(prev_vertex, vertex_list[i + 1], last_edge_len);
     }
   }
-
   return true;
 }
 
@@ -4422,6 +4587,11 @@ void Rrg::setState(StateVec& state) {
 }
 
 void Rrg::timerCallback(const ros::TimerEvent& event) {
+
+  // If the merging process is running stop the process
+  // ARS control
+  if(require_merging) return;
+
   // Re-initialize until get non-zero value.
   if (rostime_start_.toSec() == 0) rostime_start_ = ros::Time::now();
 
@@ -4500,6 +4670,7 @@ void Rrg::timerCallback(const ros::TimerEvent& event) {
             bt_state[2] - robot_backtracking_prev_->state[2]);
         double dir_norm = cur_dir.norm();
         if (dir_norm >= kOdoEnforceLength) {
+          if(dir_norm > 2) continue; // ARS control, to skip too long edges generated blindly
           Vertex* new_vertex =
               new Vertex(global_graph_->generateVertexID(), bt_state);
           new_vertex->parent = robot_backtracking_prev_;
@@ -4525,7 +4696,6 @@ void Rrg::timerCallback(const ros::TimerEvent& event) {
       }
     }
   }
-
   // Get position from odometry to add more vertices to the graph for homing.
   Eigen::Vector3d cur_dir(current_state_[0] - last_state_marker_[0],
                           current_state_[1] - last_state_marker_[1],

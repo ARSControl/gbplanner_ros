@@ -1,14 +1,16 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(gbplanner)
 
-add_definitions(-std=c++14 -Wall -Wno-sign-compare -Wno-catch-value -Wno-switch -Wno-maybe-uninitialized -Werror=return-type)
+#Qui era -std=c++14 non 17
+add_definitions(-std=c++17 -Wall -Wno-sign-compare -Wno-catch-value -Wno-switch -Wno-maybe-uninitialized -Werror=return-type)
 
 find_package(catkin_simple REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(adaptive_obb REQUIRED)
 
-catkin_simple(ALL_DEPS_REQUIRED)
+catkin_simple(ALL_DEPS_REQUIRED
+              COMPONENTS graph_merging)
 
 include_directories(
   ${Boost_INCLUDE_DIRS}
@@ -24,7 +26,9 @@ cs_add_library(
 )
 
 cs_add_executable(gbplanner_node src/gbplanner_ros_node.cpp)
-target_link_libraries(gbplanner_node ${PROJECT_NAME} ${planner_common_LIBRARIES})
+target_link_libraries(gbplanner_node ${PROJECT_NAME} 
+                                      ${planner_common_LIBRARIES} 
+                                      ${graph_merging_LIBRARIES})
 
 # Install Python scripts (standard CMake install, should work with catkin_simple)
 install(PROGRAMS

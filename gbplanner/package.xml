@@ -23,5 +23,7 @@
   <depend>pcl_ros</depend>
   <depend>rospy</depend>
   <depend>roslaunch</depend>
+
+  <depend>graph_merging</depend>
   
 </package>

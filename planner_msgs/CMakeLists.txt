@@ -49,8 +49,10 @@ add_message_files(
   Vertex.msg
   Edge.msg
   Graph.msg
+  Merge.msg
   CoveragePlannerLogger.msg
   BehaviourPlannerLogger.msg
+  CommunicationTrigger.msg
 )
 
 add_action_files(
@@ -65,5 +67,5 @@ generate_messages(
 )
 
 catkin_package(
-  CATKIN_DEPENDS message_runtime geometry_msgs actionlib_msgs
+  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs actionlib_msgs
 )

@@ -169,6 +169,7 @@ bool Gbplanner::passingGateCallback(
   return true;
 }
 
+// The function called when clicking the button "Start Planner" via RViz
 bool Gbplanner::plannerServiceCallback(
     planner_msgs::planner_srv::Request& req,
     planner_msgs::planner_srv::Response& res) {
@@ -184,8 +185,9 @@ bool Gbplanner::plannerServiceCallback(
     return false;
   }
 
+  // This block should just build the local graph, which is reset each time the planner is triggered.
   rrg_->reset();
-  Rrg::GraphStatus status = rrg_->buildGraph();
+  Rrg::GraphStatus status = rrg_->buildGraph(); 
   switch (status) {
     case Rrg::GraphStatus::OK:
       break;
@@ -204,6 +206,7 @@ bool Gbplanner::plannerServiceCallback(
       break;
   }
 
+  // This block should just evaluate the local graph computing gains
   bool global_planner_trig = false;
   if (status == Rrg::GraphStatus::OK) {
     status = rrg_->evaluateGraph();
@@ -225,9 +228,12 @@ bool Gbplanner::plannerServiceCallback(
   }
   if (global_planner_trig) return true;
 
+  // This should be the real core block where the global graph is built!
+  // res is the path returned to the pci to be executed
   if (status == Rrg::GraphStatus::OK) {
     res.path = rrg_->getBestPath(req.header.frame_id, res.status);
   }
+
   return true;
 }
 

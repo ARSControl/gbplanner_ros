@@ -33,12 +33,32 @@ void GraphManager::reset() {
   id_count_ = -1;
 }
 
+// Function for getting the vertices vertex v is connected via and edge
+void GraphManager::getAdjacentVertices(Vertex* v, std::vector<int>& adjacent_vertices){
+  // ROS_INFO("Get adjacent vertices of vertex [%d]", v->id);
+  adjacent_vertices.clear();
+  int v_id = v->id;
+  // Check if vertex v exists
+  if (vertices_map_.find(v_id) == vertices_map_.end()){
+    return;
+  }
+  //Fill the list of vertices the vertex v is connected to
+  // ROS_INFO("Adjacent vertices of vertex [%d]....", v->id);
+  for(const auto& neighbour : edge_map_[v_id]){
+    // ROS_INFO("Vertex [%d]", neighbour.first);
+    adjacent_vertices.push_back(neighbour.first);
+  }
+}
+
 void GraphManager::addVertex(Vertex* v) {
+  // Add the vertex to the kdtree for neighbour search
   kd_insert3(kd_tree_, v->state.x(), v->state.y(), v->state.z(), v);
-  if (v->id == 0)
+  if (v->id == 0){
     graph_->addSourceVertex(0);
-  else
+  }
+  else{
     graph_->addVertex(v->id);
+  }
   vertices_map_[v->id] = v;
 }
 
@@ -50,6 +70,77 @@ void GraphManager::addEdge(Vertex* v, Vertex* u, double weight) {
 
 void GraphManager::removeEdge(Vertex* v, Vertex* u) {
   graph_->removeEdge(v->id, u->id);
+}
+
+void GraphManager::addEdgeMerging(Vertex* v, Vertex* u, double weight) {
+  // ROS_INFO("MANAGER: Adding edge btw vertex [%d] and vertex [%d]", v->id, u->id);
+  // Check if the two vertices to be connected exist
+  if(vertices_map_.find(v->id) == vertices_map_.end()){
+    ROS_INFO("First vertex not found in the list of vertices!");
+    return;
+  }
+  if(vertices_map_.find(u->id) == vertices_map_.end()){
+    ROS_INFO("Second vertex not found in the list of vertices!");
+    return;
+  }
+
+  //Check if the edge already exists
+  for (const auto& p : edge_map_[v->id]) {
+    if (p.first == u->id) {
+      // ROS_INFO("MANAGER: Edge between vertex ID [%d] and vertex ID [%d] already exist, skipping...", v->id, u->id);
+      return;
+    }
+  }
+  // The boost graph library creates the edge in both directions wiht undirected graphs
+  // ROS_INFO("MANAGER: Adding edge between vertex ID [%d] and vertex ID [%d]...", v->id, u->id);
+  graph_->addEdge(v->id, u->id, weight);
+  edge_map_[v->id].push_back(std::make_pair(u->id, weight));
+  edge_map_[u->id].push_back(std::make_pair(v->id, weight));
+  // ROS_INFO("MANAGER: Added edge between vertex ID [%d] and vertex ID [%d] adn edge_map_s updated!", v->id, u->id);
+}
+
+void GraphManager::removeEdgeMerging(int v_id, int u_id) {
+  //  ROS_INFO("MANAGER: Removing edge between vertex [%d] and vertex [%d]", v_id, u_id);
+  // if(edge_map_.find(v_id) == edge_map_.end()){
+  //   ROS_INFO("MANAGER: Vertex [%d] has not an edge_map!", v_id);
+  //   return;
+  // }
+  // if(edge_map_.find(u_id) == edge_map_.end()){
+  //   ROS_INFO("MANAGER: Vertex [%d] has not an edge_map!", u_id);
+  //   return;
+  // }
+  // ROS_INFO("MANAGER: Erasing edge between vertex [%d] and vertex [%d] from edge_map...", v_id, u_id);
+  // Remove the edge from the edge_map_ in both directions
+  edge_map_[v_id].erase(std::remove_if(edge_map_[v_id].begin(), edge_map_[v_id].end(),
+                                        [u_id](const std::pair<int, double>& edge) {
+                                            return edge.first == u_id;
+                                        }), edge_map_[v_id].end());
+  graph_->removeEdge(v_id, u_id);
+}
+
+// ARS control
+void GraphManager::removeVertex(Vertex* u) {
+  // Chech if vertex u exist
+  if(vertices_map_.find(u->id) == vertices_map_.end()){
+    return;
+  }
+  // Check if its edge map exist
+  if (edge_map_.find(u->id) == edge_map_.end()){
+    return;
+  }
+  // Iterate over the neighbours of u
+  for (const auto& edge: edge_map_[u->id]){
+    int neighbour_id = edge.first;
+    // Check if the neighbour exist
+    if (vertices_map_.find(neighbour_id) == vertices_map_.end()){
+      continue;
+    }
+    this->removeEdgeMerging(neighbour_id, u->id);
+  }
+  vertices_map_.erase(u->id);
+  graph_->removeVertex(u->id);
+  edge_map_.erase(u->id);
+  delete u;
 }
 
 bool GraphManager::getNearestVertex(const StateVec* state, Vertex** v_res) {
@@ -96,6 +187,28 @@ bool GraphManager::getNearestVertices(const StateVec* state, double range,
     v_res->push_back(new_neighbor);
     if (kd_res_next(neighbors) <= 0) break;
   }
+  kd_res_free(neighbors);
+  return true;
+}
+
+// ARS control
+bool GraphManager::getNearestVertices_modified(const StateVec* state, double range,
+                                      std::vector<Vertex*>* v_res) {
+  kdres* neighbors =
+      kd_nearest_range3(kd_tree_, state->x(), state->y(), state->z(), range);
+  if (kd_res_size(neighbors) <= 0) {
+    kd_res_free(neighbors);
+    return false;
+  }
+  v_res->clear();
+
+  std::unordered_set<int> seen_ids;  // or Vertex*
+  do {
+    Vertex* v = (Vertex*)kd_res_item_data(neighbors);
+    if (seen_ids.insert(v->id).second) {
+      v_res->push_back(v);
+    }
+  } while (kd_res_next(neighbors) > 0);
   kd_res_free(neighbors);
   return true;
 }
@@ -279,6 +392,7 @@ void GraphManager::convertGraphToMsg(planner_msgs::Graph& graph_msg) {
 
 void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
   // Add all the vertices first
+
   for (auto& v : graph_msg.vertices) {
     generateVertexID();  // must call this one to increase the count inside
     StateVec state;
@@ -287,6 +401,7 @@ void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
     state[2] = v.pose.position.z;
     state[3] = tf::getYaw(v.pose.orientation);
     Vertex* vertex = new Vertex(v.id, state);
+
     // Copy other info
     vertex->vol_gain.num_unknown_voxels = v.num_unknown_voxels;
     vertex->vol_gain.num_occupied_voxels = v.num_occupied_voxels;
@@ -300,6 +415,7 @@ void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
   for (auto& e : graph_msg.edges) {
     addEdge(getVertex(e.source_id), getVertex(e.target_id), e.weight);
   }
+  
 }
 
 void GraphManager::saveGraph(const std::string& path) {

@@ -540,7 +540,7 @@ void Visualization::visualizeGlobalGraph(
   edge_marker.color.a = 1.0;
   edge_marker.lifetime = ros::Duration(graph_lifetime);
   edge_marker.frame_locked = false;
-
+  
   std::pair<Graph::GraphType::edge_iterator, Graph::GraphType::edge_iterator>
       ei;
   g->getEdgeIterator(ei);
@@ -560,7 +560,7 @@ void Visualization::visualizeGlobalGraph(
     edge_marker.points.push_back(p2);
   }
   marker_array.markers.push_back(edge_marker);
-
+  // ROS_INFO("Finished edge iteration");
   // // Plot all edges using arrows (slow)
   // int marker_idd = 0;
   // std::pair<Graph::GraphType::edge_iterator, Graph::GraphType::edge_iterator>
@@ -627,6 +627,7 @@ void Visualization::visualizeGlobalGraph(
   g->getVertexIterator(vi);
   for (Graph::GraphType::vertex_iterator it = vi.first; it != vi.second; ++it) {
     int id = g->getVertexProperty(it);
+    // ROS_INFO("Got Vertex properties");
     geometry_msgs::Point p1;
     p1.x = v_map[id]->state[0];
     p1.y = v_map[id]->state[1];
@@ -688,7 +689,6 @@ void Visualization::visualizeGlobalGraph(
     }
   }
   marker_array.markers.push_back(frontier_marker);
-
   // Semantics
   visualization_msgs::Marker semantic_marker_stairs;
   semantic_marker_stairs.header.stamp = ros::Time::now();
@@ -720,7 +720,6 @@ void Visualization::visualizeGlobalGraph(
     }
   }
   marker_array.markers.push_back(semantic_marker_stairs);
-
   visualization_msgs::Marker semantic_marker_door;
   semantic_marker_door.header.stamp = ros::Time::now();
   semantic_marker_door.header.seq = 0;

@@ -41,7 +41,6 @@ class Gbplanner {
 
   bool plannerServiceCallback(planner_msgs::planner_srv::Request& req,
                               planner_msgs::planner_srv::Response& res);
-
   void setGeofenceManager(std::shared_ptr<GeofenceManager> geofence_manager);
   void setUntraversablePolygon(
       const geometry_msgs::PolygonStamped& polygon_msgs);

@@ -14,6 +14,9 @@
   <arg name="launch_prefix" default=""/>
   <arg name="use_sim_time" default="true"/>
 
+  <!-- ARS Control -->
+  <arg name="num_robots"/>
+
   <!-- Config files - use base_name for config directory -->
   <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config.yaml"/>
   <arg name="pci_file" default="$(find gbplanner)/config/$(arg base_name)/planner_control_interface_sim_config.yaml"/>
@@ -83,6 +86,7 @@
       <!-- Inside namespace, "pointcloud" resolves to /$(arg robot_name)/pointcloud -->
       <!-- We remap it to the absolute velodyne topic -->
       <remap from="pointcloud" to="/$(arg robot_name)/velodyne_points" />
+
       <!-- Services are automatically namespaced to $(arg robot_name)/gbplanner/* -->
       <rosparam command="load" file="$(arg gbplanner_config_file)" />
       <rosparam command="load" file="$(arg map_config_file)" />
@@ -100,6 +104,20 @@
       <remap from="odometry" to="$(arg odometry_topic)"/>
       <!-- Services are automatically namespaced to $(arg robot_name)/pci_* -->
       <rosparam command="load" file="$(arg pci_file)" />
+    </node>
+  </group>
+
+
+  <!-- ARS control -->
+  <!-- Merging node -->
+  <group ns="$(arg robot_name)">
+    <node pkg="graph_merging" type="merging_node" name="merging_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
+    </node>
+  </group>
+  
+  <!-- Gaussian Mixture Model node -->
+  <group ns="$(arg robot_name)">
+    <node pkg="gmm" type="gmm_node.py" name="gmm_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
     </node>
   </group>
 

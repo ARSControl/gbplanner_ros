@@ -36,9 +36,16 @@ void Graph::removeEdge(int u_id, int v_id) {
   if (vertex_descriptors_.find(v_id) == vertex_descriptors_.end()) {
     return;
   }
-
   boost::remove_edge(vertex_descriptors_[u_id], vertex_descriptors_[v_id],
                      graph_);
+}
+
+// ARS control 
+void Graph::removeVertex(int u_id) {
+  if (vertex_descriptors_.find(u_id) == vertex_descriptors_.end()) {
+    return;
+  }
+  boost::remove_vertex(vertex_descriptors_[u_id], graph_);
 }
 
 bool Graph::findDijkstraShortestPaths(int src_id, ShortestPathsReport& rep) {
@@ -140,3 +147,25 @@ void Graph::getVertexIterator(
 int Graph::getVertexProperty(GraphType::vertex_iterator v) {
   return boost::get(boost::get(boost::vertex_index, graph_), *v);
 }
+
+// std::vector<int> Graph::getAdjacentVertices(int id) {
+  
+//   std::vector<int> neighbors;
+
+//   // Check if the vertex exists
+//   auto it = vertex_descriptors_.find(id);
+//   if (it == vertex_descriptors_.end()) {
+//     return neighbors;  // empty if vertex not found
+//   }
+
+//   VertexDescriptor v = it->second;
+
+//   // Get adjacency iterator pair
+//   auto [ai, ai_end] = boost::adjacent_vertices(v, graph_);
+
+//   for (; ai != ai_end; ++ai) {
+//     neighbors.push_back(getVertexID(*ai));
+//   }
+
+//   return neighbors;
+// }

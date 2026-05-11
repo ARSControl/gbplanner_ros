@@ -115,7 +115,8 @@ class PlannerControlInterface {
   bool pose_is_ready_;
   bool init_request_;
   bool global_request_;
-  bool stop_planner_request_;
+  bool stop_planner_request_; // To verify 
+  bool restore_auto_after_global_; // ARS control
 
   bool passing_gate_success_;
   bool passing_gate_request_;
@@ -153,7 +154,6 @@ class PlannerControlInterface {
   ros::Publisher semantic_pub;
 
   double control_size = 1.0;
-
   bool menu_initialized = false;
 
   // Current following path.

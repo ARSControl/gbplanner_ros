@@ -47,6 +47,10 @@ def spawn_robots():
     # Store processes for cleanup
     processes = []
     
+    # Take the number robots
+    num_robots = len(robots) # ARS Control
+    rospy.set_param('/num_robots', num_robots)
+
     # Spawn each robot using roslaunch subprocess
     for robot in robots:
         robot_name = robot.get('name', 'robot')

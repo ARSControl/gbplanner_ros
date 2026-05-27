@@ -29,6 +29,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Int32.h>
 #include <std_srvs/Trigger.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
@@ -286,21 +287,25 @@ class Rrg {
   // Publishers
   ros::Publisher global_graph_pub_;
   ros::Publisher gmm_pub_;
+  std::unordered_map<int, ros::Publisher> graph_publishers_;
+  ros::Publisher global_graph_size_pub_;
 
   // Subscribers
   ros::Subscriber merged_global_graph_subscriber_;
   std::vector<ros::Subscriber> graph_subscribers_;
-
-  std::unordered_map<int, ros::Publisher> graph_publishers_;
-  // ros::Timer global_graph_pub_timer_;
-  ros::Subscriber global_graph_sub_;
+  ros::Subscriber global_graph_trigger_sub_;
   ros::Subscriber received_graph_sub_;
+  
+  // Timers
+  // ros::Timer global_graph_pub_timer_;
+  ros::Timer graph_size_timer_;
 
   // void publishGlobalGraphTimerCallback(const ros::TimerEvent& event);
   void publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg);
-  void initializeMultiRobotGraphSubscriptions();
   void receivedNeighbourGraph(const planner_msgs::Graph& graph_msg);
   void mergedGraphCallback(const planner_msgs::Graph& graph_msg);
+  void publishGlobalGraphSizeCallback(const ros::TimerEvent& event);
+
   ros::ServiceClient trigger_global_planner_;
 
   // To stop callback accessing the global graph while modifying it

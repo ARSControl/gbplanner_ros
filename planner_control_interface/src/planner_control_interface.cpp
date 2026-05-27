@@ -521,7 +521,7 @@ bool PlannerControlInterface::init() {
   search_request_ = false;
   global_request_ = false;
   stop_planner_request_ = false;
-  restore_auto_after_global_ = false; //ARS Control
+  restore_auto_after_global_ = false; // ARS Control
   passing_gate_request_ = false;
   passing_gate_success_ = false;
   go_to_waypoint_request_ = false;

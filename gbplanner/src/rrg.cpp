@@ -128,22 +128,29 @@ void Rrg::initializeAttributes() {
     );
   }
 
-  // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(50.0),&Rrg::publishGlobalGraphTimerCallback, this);
-  global_graph_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
+  // Enable for single drone graph merge experiments
+  // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(100.0),&Rrg::publishGlobalGraphTimerCallback, this);
+  // global_graph_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/vertices_to_keep", 10);
 
+  // Enble for multi-drone graph merge experiments
+  global_graph_trigger_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
   received_graph_sub_ =  nh_.subscribe("global_graph_in", 10, &Rrg::receivedNeighbourGraph, this);
-
   gmm_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/evaluate_gmm", 10);
-
   merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
   trigger_global_planner_ = nh_.serviceClient<planner_msgs::pci_global>("pci_global");
+
+  // Keep always enabled for experiments
+  graph_size_timer_ = nh_.createTimer(ros::Duration(1), &Rrg::publishGlobalGraphSizeCallback, this);
+  global_graph_size_pub_ = nh_.advertise<std_msgs::Int32>("global_graph_size", 10);
 }
 
 // Publishes the own global graph into the topic using a timer
 // void Rrg::publishGlobalGraphTimerCallback(const ros::TimerEvent& event){
-//   planner_msgs::Graph global_graph_msg;
-//   global_graph_->convertGraphToMsg(global_graph_msg);
-//   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",global_graph_msg.vertices.size(), global_graph_msg.edges.size());
+//   planner_msgs::Merge global_graph_msg.input_graph;
+//   global_graph_->convertGraphToMsg(global_graph_msg.input_graph);
+//   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",
+//             global_graph_msg.input_graph.vertices.size(),
+//             global_graph_msg.input_graph.edges.size());
 //   global_graph_pub_.publish(global_graph_msg);
 // }
 
@@ -167,6 +174,16 @@ void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigg
     graph_publishers_[neighbour_id].publish(global_graph_msg);
     // global_graph_pub_.publish(global_graph_msg);
   }
+}
+
+// Publish the global graph size for metrics extraction
+void Rrg::publishGlobalGraphSizeCallback(const ros::TimerEvent& event){
+  if (require_merging) return;
+
+  std_msgs::Int32 global_graph_size;
+  global_graph_size.data = global_graph_->vertices_map_.size();
+  
+  global_graph_size_pub_.publish(global_graph_size);
 }
 
 // Publish both graphs to the Gaussian Mixture Model node for nodes filtering

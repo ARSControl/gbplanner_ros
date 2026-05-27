@@ -8,6 +8,7 @@
 #       base_name: Base name for config directory (e.g., "rmf_obelix" uses config/rmf_obelix/)
 #       x, y, z: Initial spawn position in Gazebo world (meters)
 
+# Configuration for pittsburgh mine
 robots:
   - name: rmf_obelix_1
     base_name: rmf_obelix
@@ -17,15 +18,15 @@ robots:
   
   - name: rmf_obelix_2
     base_name: rmf_obelix
-    x: 40.0
-    y: 40.0
+    x: 30.0
+    y: 0.0
     z: 0.5
   
   # Uncomment to add more robots:
   - name: rmf_obelix_3
     base_name: rmf_obelix
-    x: -40.0
-    y: -40.0
+    x: 73.5
+    y: 30.0
     z: 0.5
 
 

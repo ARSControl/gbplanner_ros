@@ -136,15 +136,15 @@ void Rrg::initializeAttributes() {
   global_graph_trigger_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
   received_graph_sub_ =  nh_.subscribe("global_graph_in", 10, &Rrg::receivedNeighbourGraph, this);
   gmm_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/evaluate_gmm", 10);
-  merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
   trigger_global_planner_ = nh_.serviceClient<planner_msgs::pci_global>("pci_global");
 
   // Keep always enabled for experiments
   graph_size_timer_ = nh_.createTimer(ros::Duration(1), &Rrg::publishGlobalGraphSizeCallback, this);
   global_graph_size_pub_ = nh_.advertise<std_msgs::Int32>("global_graph_size", 10);
+  merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
 }
 
-// Publishes the own global graph into the topic using a timer
+// Publishes the own global graph into the topic using a timer (enable for single drone graph merge)
 // void Rrg::publishGlobalGraphTimerCallback(const ros::TimerEvent& event){
 //   planner_msgs::Merge global_graph_msg.input_graph;
 //   global_graph_->convertGraphToMsg(global_graph_msg.input_graph);

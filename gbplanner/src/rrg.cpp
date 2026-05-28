@@ -128,17 +128,17 @@ void Rrg::initializeAttributes() {
     );
   }
 
-  // Enable for single drone graph merge experiments
+  // Enable for single drone graph merge 
   // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(100.0),&Rrg::publishGlobalGraphTimerCallback, this);
   // global_graph_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/vertices_to_keep", 10);
 
-  // Enble for multi-drone graph merge experiments
+  // Enble for multi-drone graph merge
   global_graph_trigger_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
   received_graph_sub_ =  nh_.subscribe("global_graph_in", 10, &Rrg::receivedNeighbourGraph, this);
   gmm_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/evaluate_gmm", 10);
   trigger_global_planner_ = nh_.serviceClient<planner_msgs::pci_global>("pci_global");
 
-  // Keep always enabled for experiments
+  // Keep always enabled
   graph_size_timer_ = nh_.createTimer(ros::Duration(1), &Rrg::publishGlobalGraphSizeCallback, this);
   global_graph_size_pub_ = nh_.advertise<std_msgs::Int32>("global_graph_size", 10);
   merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
@@ -154,7 +154,7 @@ void Rrg::initializeAttributes() {
 //   global_graph_pub_.publish(global_graph_msg);
 // }
 
-// Publish the global graph into the topic of the robot in communication range
+// Publish the global graph into the topic of the robot in communication range (enable for multi-drone graph merge)
 void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg){
   if(global_graph_->vertices_map_.size() < 2){
     ROS_INFO("[%d] Own global graph contains less than two vertices, skipping the merging procedure.", robot_id);

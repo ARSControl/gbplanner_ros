@@ -15,7 +15,7 @@
   <arg name="use_sim_time" default="true"/>
 
   <!-- ARS Control -->
-  <arg name="num_robots"/>
+  <!-- <arg name="num_robots"/> -->
 
   <!-- Config files - use base_name for config directory -->
   <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config.yaml"/>
@@ -121,7 +121,7 @@
     </node>
   </group>
 
-  <group ns="$(arg robot_name)">
+  <!-- <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
       <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_metrics" />
       <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_trajectory" />
@@ -134,14 +134,14 @@
       <param name="transInterval" type="double" value="0.2" />
       <param name="yawInterval" type="double" value="10.0" />
       <param name="overallMapDisplayInterval" type="int" value="2" />
-      <param name="exploredAreaDisplayInterval" type="int" value="1" />
+      <param name="exploredAreaDisplayInterval" type="int" value="1" /> -->
       <!-- <remap from="registered_scan" to="mggplanner_node/surface_pointcloud"/> -->
-      <remap from="state_estimation" to="odometry_sensor1/odometry "/>
+      <!-- <remap from="state_estimation" to="odometry_sensor1/odometry"/>
       <remap from="gbp_time_log" to="gbp_time_log"/>
-    </node>
+    </node> -->
 
     <!-- <node pkg="visualization_tools" type="realTimePlot.py" name="realTimePlot" output="screen" respawn="true"/> -->
-  </group>
+  <!-- </group> -->
 
 </launch>
 

@@ -121,6 +121,10 @@
     </node>
   </group>
 
+  <node pkg="topic_tools" type="relay" name="total_r2to$(arg robot_name)" args="/rmf_obelix_2/gbplanner_node/surface_pointcloud registered_scan" />
+  <node pkg="topic_tools" type="relay" name="total_r1to$(arg robot_name)" args="/rmf_obelix_1/gbplanner_node/surface_pointcloud registered_scan" />
+  <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
+
   <!-- <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
       <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_metrics" />

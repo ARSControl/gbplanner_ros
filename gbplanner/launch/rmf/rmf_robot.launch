@@ -121,15 +121,11 @@
     </node>
   </group>
 
-  <node pkg="topic_tools" type="relay" name="total_r2to$(arg robot_name)" args="/rmf_obelix_2/gbplanner_node/surface_pointcloud registered_scan" />
-  <node pkg="topic_tools" type="relay" name="total_r1to$(arg robot_name)" args="/rmf_obelix_1/gbplanner_node/surface_pointcloud registered_scan" />
-  <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
-
-  <!-- <group ns="$(arg robot_name)">
+  <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
       <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_metrics" />
       <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_trajectory" />
-      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_trajectory" />
+      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
       <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
 
       <param name="overallMapVoxelSize" type="double" value="0.5" />
@@ -138,14 +134,18 @@
       <param name="transInterval" type="double" value="0.2" />
       <param name="yawInterval" type="double" value="10.0" />
       <param name="overallMapDisplayInterval" type="int" value="2" />
-      <param name="exploredAreaDisplayInterval" type="int" value="1" /> -->
+      <param name="exploredAreaDisplayInterval" type="int" value="1" />
       <!-- <remap from="registered_scan" to="mggplanner_node/surface_pointcloud"/> -->
-      <!-- <remap from="state_estimation" to="odometry_sensor1/odometry"/>
+      <remap from="state_estimation" to="odometry_sensor1/odometry"/>
       <remap from="gbp_time_log" to="gbp_time_log"/>
-    </node> -->
+    </node>
+
+    <node pkg="topic_tools" type="relay" name="total_r2to$(arg robot_name)" args="/rmf_obelix_2/gbplanner_node/surface_pointcloud registered_scan" />
+    <node pkg="topic_tools" type="relay" name="total_r1to$(arg robot_name)" args="/rmf_obelix_1/gbplanner_node/surface_pointcloud registered_scan" />
+    <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
 
     <!-- <node pkg="visualization_tools" type="realTimePlot.py" name="realTimePlot" output="screen" respawn="true"/> -->
-  <!-- </group> -->
+  </group>
 
 </launch>
 

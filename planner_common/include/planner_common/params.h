@@ -206,6 +206,12 @@ struct RobotParams {
   // Safety extension
   Eigen::Vector3d safety_extension;
 
+
+  // Melo
+  float nominal_flight_height;
+  float delta_factor;
+  // Melo
+
   // Utilities.
   void setBoundMode(BoundModeType bmode);
   // Compute the planning size according to the bound mode setting.

@@ -132,7 +132,7 @@ void Rrg::initializeAttributes() {
   // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(100.0),&Rrg::publishGlobalGraphTimerCallback, this);
   // global_graph_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/vertices_to_keep", 10);
 
-  // Enble for multi-drone graph merge
+  // Enable for multi-drone graph merge
   global_graph_trigger_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
   received_graph_sub_ =  nh_.subscribe("global_graph_in", 10, &Rrg::receivedNeighbourGraph, this);
   gmm_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/evaluate_gmm", 10);
@@ -266,6 +266,13 @@ void Rrg::reset() {
   else {
     root_state = state_for_planning_;
   }
+
+  // Used to set the first graph node to the desired height
+  // Melo
+  const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
+  root_state[2] = fixed_flight_z;
+  // Melo
+
   stat_->init(root_state);
   if (robot_params_.type == RobotType::kGroundRobot) {
     MapManager::VoxelStatus vs;
@@ -1988,7 +1995,8 @@ void Rrg::addFrontiers(int best_vertex_id) {
     ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Have %d frontiers from global graph.",
              (int)global_frontiers.size());
     for (auto& v : global_frontiers) {
-      computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
+      // computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
+      computeVolumetricGainRayModelNoBoundMelo(v->state, v->vol_gain); // Melo
       if (!v->vol_gain.is_frontier) v->type = VertexType::kUnvisited;
     }
   }
@@ -2726,7 +2734,11 @@ void Rrg::initializeParams() {
   random_sampler_.setParams(global_space_params_, local_space_params_);
   random_sampler_to_search_.setParams(global_space_params_,
                                       local_search_params_);
-
+  
+  // Melo
+  // double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
+  // random_sampler_.setZBound(fixed_flight_z);
+  // Melo
   // Precompute the robot box for planning.
   robot_params_.getPlanningSize(robot_box_size_);
   planning_num_vertices_max_ = planning_params_.num_vertices_max;
@@ -3236,6 +3248,7 @@ void Rrg::computeVolumetricGainRayModel(StateVec& state, VolumetricGain& vgain,
 
 void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
                                                VolumetricGain& vgain) {
+  // Reset the gain of the frontier
   vgain.reset();
 
   std::vector<std::tuple<int, int, int>> gain_log;
@@ -3244,8 +3257,9 @@ void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
   // Compute for each sensor in the exploration sensor list.
   // However, this would be a problem if those sensors have significant overlap.
   for (int ind = 0; ind < planning_params_.exp_sensor_list.size(); ++ind) {
+    // Take the sensor name
     std::string sensor_name = planning_params_.exp_sensor_list[ind];
-
+    // It computes the frustum and probably gets the own map inside the frustum
     Eigen::Vector3d origin(state[0], state[1], state[2]);
     std::tuple<int, int, int> gain_log_tmp;
     std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>>
@@ -3259,7 +3273,8 @@ void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
     int num_unknown_voxels = 0, num_free_voxels = 0, num_occupied_voxels = 0;
     // Have to remove those not belong to the local bound.
     // At the same time check if this is frontier.
-
+    
+    // Iterate over the voxels in the frustum and detect if they are free/occupied/unknown
     for (auto& vl : voxel_log_tmp) {
       Eigen::Vector3d voxel = vl.first;
       MapManager::VoxelStatus vs = vl.second;
@@ -3276,6 +3291,7 @@ void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
         }
       }
     }
+    // For each voxel keep track of how many unkwnow/free/occupied voxels
     gain_log.push_back(std::make_tuple(num_unknown_voxels, num_free_voxels,
                                        num_occupied_voxels));
     // Check if it is a potential frontier.
@@ -3299,12 +3315,109 @@ void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
   }
 }
 
+
+
+
+
+
+
+// Melo
+void Rrg::computeVolumetricGainRayModelNoBoundMelo(StateVec& state,
+                                               VolumetricGain& vgain) {
+  // Reset the gain of the frontier
+  // vgain.reset();
+  // Copy the volumetric gain
+  VolumetricGain new_gain;
+  new_gain = vgain;
+
+  std::vector<std::tuple<int, int, int>> gain_log;
+  std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>> voxel_log;
+  // @TODO tung.
+  // Compute for each sensor in the exploration sensor list.
+  // However, this would be a problem if those sensors have significant overlap.
+  for (int ind = 0; ind < planning_params_.exp_sensor_list.size(); ++ind) {
+    // Take the sensor name
+    std::string sensor_name = planning_params_.exp_sensor_list[ind];
+    // It computes the frustum and probably gets the own map inside the frustum
+    Eigen::Vector3d origin(state[0], state[1], state[2]);
+    std::tuple<int, int, int> gain_log_tmp;
+    std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>>
+        voxel_log_tmp;
+    std::vector<Eigen::Vector3d> multiray_endpoints;
+    sensor_params_.sensor[sensor_name].getFrustumEndpoints(state,
+                                                           multiray_endpoints);
+    map_manager_->getScanStatus(origin, multiray_endpoints, gain_log_tmp,
+                                voxel_log_tmp,
+                                sensor_params_.sensor[sensor_name]);
+    int num_unknown_voxels = 0, num_free_voxels = 0, num_occupied_voxels = 0;
+    // Have to remove those not belong to the local bound.
+    // At the same time check if this is frontier.
+    
+    // Iterate over the voxels in the frustum and detect if they are free/occupied/unknown
+    for (auto& vl : voxel_log_tmp) {
+      Eigen::Vector3d voxel = vl.first;
+      MapManager::VoxelStatus vs = vl.second;
+      if (global_space_params_.isInsideSpace(voxel)) {
+        // valid voxel.
+        if (vs == MapManager::VoxelStatus::kUnknown) {
+          ++num_unknown_voxels;
+        } else if (vs == MapManager::VoxelStatus::kFree) {
+          ++num_free_voxels;
+        } else if (vs == MapManager::VoxelStatus::kOccupied) {
+          ++num_occupied_voxels;
+        } else {
+          ROS_ERROR_COND(global_verbosity >= Verbosity::ERROR, "Unsupported voxel type.");
+        }
+      }
+    }
+    // For each voxel keep track of how many unkwnow/free/occupied voxels
+    gain_log.push_back(std::make_tuple(num_unknown_voxels, num_free_voxels,
+                                       num_occupied_voxels));
+    // Check if it is a potential frontier.
+    if (sensor_params_.sensor[sensor_name].isFrontier(
+            num_unknown_voxels * map_manager_->getResolution())) {
+      new_gain.is_frontier = true;  // Event E2
+    }
+  }
+
+  // Return gain values.
+  // Compute the volumetric gain based on my knowledge
+  for (int i = 0; i < gain_log.size(); ++i) {
+    int num_unknown_voxels = std::get<0>(gain_log[i]);
+    int num_free_voxels = std::get<1>(gain_log[i]);
+    int num_occupied_voxels = std::get<2>(gain_log[i]);
+    new_gain.num_unknown_voxels += num_unknown_voxels;
+    new_gain.num_free_voxels += num_free_voxels;
+    new_gain.num_occupied_voxels += num_occupied_voxels;
+    new_gain.gain += num_unknown_voxels * planning_params_.unknown_voxel_gain +
+                  num_free_voxels * planning_params_.free_voxel_gain +
+                  num_occupied_voxels * planning_params_.occupied_voxel_gain;
+  }
+
+  vgain = new_gain;
+  // Take the smallest volumetric gain
+  vgain.gain = std::min(vgain.gain, new_gain.gain);
+}
+// Melo
+
+
+
+
+
+
 void Rrg::setRootStateForPlanning(const geometry_msgs::Pose& root_pose) {
   // If require plan ahead --> use the end pose from the last best path.
   // Otherwise, use current pose.
+
+  // const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1); // Melo
+
   state_for_planning_[0] = root_pose.position.x;
   state_for_planning_[1] = root_pose.position.y;
   state_for_planning_[2] = root_pose.position.z;
+
+  // This is used to fix the height of the graph plane generated
+  // state_for_planning_[2] = fixed_flight_z; // Melo
+
   state_for_planning_[3] = tf::getYaw(root_pose.orientation);
   if ((state_for_planning_[0] == 0.0) && (state_for_planning_[1] == 0.0) &&
       (state_for_planning_[2] == 0.0)) {
@@ -4021,6 +4134,15 @@ std::vector<geometry_msgs::Pose> Rrg::getBestPath(std::string tgt_frame,
   if (Trajectory::interpolatePath(ret, kInterpolationDistance, interp_path)) {
     ret = interp_path;
   }
+
+  // This probably to fly at the fixed height during planning
+  // Melo
+  // Force final commanded path to fixed flight height.
+  // const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
+  // for (auto& pose : ret) {
+  //   pose.position.z = fixed_flight_z;
+  // }
+  // Melo
   visualization_->visualizeRefPath(ret);
   return ret;
 }
@@ -4280,6 +4402,9 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
   StateVec first_state;
   first_state << vertices[0]->state[0], vertices[0]->state[1],
       vertices[0]->state[2], vertices[0]->state[3];
+  
+  // Melo
+  // first_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
 
   Vertex* nearest_vertex = NULL;
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
@@ -4336,6 +4461,8 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
     StateVec new_state;
     new_state << vertices[i]->state[0], vertices[i]->state[1],
         vertices[i]->state[2], vertices[i]->state[3];
+    // Melo
+    // new_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
     Eigen::Vector3d origin(parent_vertex->state[0], parent_vertex->state[1],
                            parent_vertex->state[2]);
     Eigen::Vector3d direction(new_state[0] - origin[0],
@@ -4437,6 +4564,8 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
       0.0;
   Vertex* nearest_vertex = NULL;
 
+  // Melo
+  // first_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
   //Check if there is a near vertex to first state
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
     return false;
@@ -4498,6 +4627,8 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
                               new_state[2] - origin[2]);
     double direction_norm = direction.norm();
 
+    // Melo
+    // new_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
     Vertex* new_vertex =
         new Vertex(graph_manager->generateVertexID(), new_state);
     // new_vertex->type = vertices[i]->type;
@@ -5084,7 +5215,8 @@ std::vector<geometry_msgs::Pose> Rrg::runGlobalPlanner(int vertex_id,
   for (int id = 0; id < num_vertices; ++id) {
     if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
       Vertex* v = global_graph_->getVertex(id);
-      computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
+      // computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
+      computeVolumetricGainRayModelNoBoundMelo(v->state, v->vol_gain); // Melo
       if (!v->vol_gain.is_frontier)
         v->type = VertexType::kUnvisited;
       else

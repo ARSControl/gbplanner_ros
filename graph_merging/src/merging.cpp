@@ -28,6 +28,25 @@ void merge::GraphMerger::initializeAttributes(){
 
     stop_planner_client_ = nh_.serviceClient<planner_msgs::pci_stop>("pci_stop", 10);
     // test_ = nh_.subscribe("/ok", 10, &GraphMerger::loadGraphsCallback, this);
+
+    // Melo
+    loadParams();
+
+    ROS_INFO("Robot nominal height: %f ", robot_params_.nominal_flight_height);
+    ROS_INFO("Robot delta factor: %f ", robot_params_.delta_factor);
+
+    int num_robots;
+    nh_.getParam("/num_robots", num_robots);
+
+    // Take the robot id from the namespace
+    std::string ns = ros::this_node::getNamespace();
+    if (!ns.empty() && ns[0] == '/'){
+        ns = ns.substr(1);
+    }
+    size_t slash = ns.find('/');
+    std::string robot_ns = ns.substr(0, slash);
+    size_t underscore = robot_ns.find_last_of('_');
+    robot_id_ = std::stoi(robot_ns.substr(underscore + 1));
 }
 
 void merge::GraphMerger::reset(){
@@ -45,6 +64,14 @@ void merge::GraphMerger::reset(){
     if (kd_tree_centroids_) kd_free(kd_tree_centroids_);
     kd_tree_centroids_ = kd_create(3);
 }
+
+// Melo
+bool merge::GraphMerger::loadParams() {
+    std::string ns = ros::this_node::getName();
+    if (!robot_params_.loadParams(ns + "/RobotParams")) return false;
+    return true;
+}
+// Melo
 
 void merge::GraphMerger::cleanCentroids(){
     for(const auto& [id, centroid] : group_centroids_list_){
@@ -302,10 +329,15 @@ void merge::GraphMerger::filteredSubgraphCallback(const planner_msgs::Merge& msg
         Vertex* vertex_ptr = new_graph_->getVertex(v.id);
         StateVec state = vertex_ptr->state;
 
+        // Melo
+        state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor*robot_id_;
+        // Melo
+
         int new_id = global_graph_manager_->generateVertexID();
         Vertex* new_vertex = new Vertex(new_id, state);
 
         // Copy all properties
+        new_vertex->vol_gain.gain = vertex_ptr->vol_gain.gain;
         new_vertex->vol_gain.num_unknown_voxels = vertex_ptr->vol_gain.num_unknown_voxels;
         new_vertex->vol_gain.num_occupied_voxels = vertex_ptr->vol_gain.num_occupied_voxels;
         new_vertex->vol_gain.num_free_voxels = vertex_ptr->vol_gain.num_free_voxels;
@@ -435,6 +467,7 @@ void merge::GraphMerger::mergeWithRepresentativeNodes(std::unordered_map<int, st
                 merged_vertex = new Vertex(new_graph_->generateVertexID(), representative_vertex->state);
             }
             // Copy all properties
+            merged_vertex->vol_gain.gain = representative_vertex->vol_gain.gain;
             merged_vertex->vol_gain.num_unknown_voxels = representative_vertex->vol_gain.num_unknown_voxels;
             merged_vertex->vol_gain.num_occupied_voxels = representative_vertex->vol_gain.num_occupied_voxels;
             merged_vertex->vol_gain.num_free_voxels = representative_vertex->vol_gain.num_free_voxels;
@@ -455,6 +488,7 @@ void merge::GraphMerger::mergeWithRepresentativeNodes(std::unordered_map<int, st
                 merged_vertex = new Vertex(new_graph_->generateVertexID(), vertices[0]->state);
             }
             // Copy all properties
+            merged_vertex->vol_gain.gain = vertices[0]->vol_gain.gain;
             merged_vertex->vol_gain.num_unknown_voxels = vertices[0]->vol_gain.num_unknown_voxels;
             merged_vertex->vol_gain.num_occupied_voxels = vertices[0]->vol_gain.num_occupied_voxels;
             merged_vertex->vol_gain.num_free_voxels = vertices[0]->vol_gain.num_free_voxels;

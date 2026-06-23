@@ -310,7 +310,7 @@ bool PlannerControlInterface::globalPlannerCallback(
   bound_mode_ = req.bound_mode;
   frontier_id_ = req.id;
   pci_global_request_params_ = req;
-   restore_auto_after_global_ = req.set_auto; // ARS Control
+  restore_auto_after_global_ = req.set_auto; // ARS Control
   res.success = true;
   return true;
 }
@@ -650,6 +650,7 @@ void PlannerControlInterface::run() {
   }
 }
 
+// Called when running the global planner using the waypoint 2D nav_goal via rviz (Plan to Waypoint)
 void PlannerControlInterface::runGlobalRepositioning() {
   ROS_INFO_COND(global_verbosity >= Verbosity::PLANNER_STATUS, "Global Repositioning %i",
                 planner_iteration_);
@@ -663,13 +664,16 @@ void PlannerControlInterface::runGlobalRepositioning() {
   planner_srv.request.check_collision = true;
   planner_srv.request.waypoint.header = set_waypoint_stamped_.header;
   planner_srv.request.waypoint.pose = set_waypoint_stamped_.pose;
-
+  
+  // If planning request is successfull execute the path
   if (nav_goal_client_.call(planner_srv)) {
+    // If the service returns a valid path
     if (!planner_srv.response.path.empty()) {
       // Execute path.
       current_path_.clear();
       // resetPlanner();
       std::vector<geometry_msgs::Pose> path_to_be_exe;
+      // Execute the path as a global path
       pci_manager_->executePath(planner_srv.response.path, path_to_be_exe,
                                 PCIManager::ExecutionPathType::kGlobalPath);
       current_path_ = path_to_be_exe;

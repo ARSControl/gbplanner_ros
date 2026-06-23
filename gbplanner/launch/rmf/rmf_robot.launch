@@ -18,7 +18,7 @@
   <!-- <arg name="num_robots"/> -->
 
   <!-- Config files - use base_name for config directory -->
-  <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config.yaml"/>
+  <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config_$(arg robot_name).yaml"/>
   <arg name="pci_file" default="$(find gbplanner)/config/$(arg base_name)/planner_control_interface_sim_config.yaml"/>
   <arg name="voxblox_config_file" default="$(find gbplanner)/config/$(arg base_name)/voxblox_sim_config.yaml"/>
   <arg name="map_config_file" default="$(arg voxblox_config_file)"/>
@@ -112,6 +112,7 @@
   <!-- Merging node -->
   <group ns="$(arg robot_name)">
     <node pkg="graph_merging" type="merging_node" name="merging_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
+    <rosparam command="load" file="$(arg gbplanner_config_file)" />
     </node>
   </group>
   
@@ -145,6 +146,38 @@
     <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
 
     <!-- <node pkg="visualization_tools" type="realTimePlot.py" name="realTimePlot" output="screen" respawn="true"/> -->
+
+
+
+
+
+
+
+    <!-- #################################### -->
+    <!-- testing -->
+    <!-- <include file="$(find local_planner)/launch/local_planner.launch" >
+      <arg name="cameraOffsetZ" value="0"/>
+      <arg name="goalX" value="0"/>
+      <arg name="goalY" value="0"/>
+      <arg name="RobotID_TF_prefix" value="$(arg robot_name)/"/>
+    </include>
+  
+
+    <node name="smb_path_tracker_node" pkg="smb_path_tracker" type="smb_path_tracker_ros_node" output="screen"> -->
+      <!-- <remap from="cmd_vel" to="smb_velocity_controller/cmd_vel" /> -->
+      <!-- <remap from="odometry" to="odometry_sensor1/odometry" /> -->
+      <!-- <remap from="cmd_vel" to="smb_velocity_controller/cmd_vel" /> -->
+      <!-- <param name="critical_angle" value="0.52"/>
+      <param name="max_ang_vel" value="0.15"/>
+      <param name="desired_vel" value="0.5"/>
+      <param name="look_ahead_error_margin" value="1.2"/>
+      <param name="look_ahead_distance" value="1.2"/>
+      <param name="dt" value="0.05"/>
+      <param name="goal_reaching_threshold" value="1.0"/>
+      <param name="robot_frame" value="$(arg robot_name)/base_link"/>
+      <param name="fixed_frame" value="world"/>
+    </node> -->
+    <!-- #################################### -->
   </group>
 
 </launch>

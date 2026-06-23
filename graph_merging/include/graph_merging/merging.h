@@ -89,6 +89,9 @@ namespace merge{
     // Perform the merging process via reading .bin files
     void graphMergeFromFile();
 
+    // Melo
+    bool loadParams();
+
     std::string world_frame_ = "world";
 
   private:
@@ -128,5 +131,9 @@ namespace merge{
     int group_id = -1;
 
     int merge_threshold = 1;
+
+    // Melo
+    RobotParams robot_params_;
+    int robot_id_;
   };
 }

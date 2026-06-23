@@ -312,6 +312,10 @@ class Rrg {
   bool require_merging = false;
 
   int robot_id;
+
+  // Melo
+  void computeVolumetricGainRayModelNoBoundMelo(StateVec& state,
+                                            VolumetricGain& vgain);
   // ARS control
 
   ros::Subscriber semantics_subscriber_;

@@ -195,6 +195,10 @@ struct Vertex {
   double dm;
   // Semantic
   planner_semantic_msgs::SemanticClass semantic_class;
+
+  // ARS Control
+  // Definisco un vettore in cui metto chi posside/ha posseduto tale vertice
+  // std::vector<int> drone_ids;
 };
 
 struct SerializeVertex {

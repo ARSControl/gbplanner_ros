@@ -12,6 +12,10 @@ RobotParams:
   relax_ratio:        0.5 # Used to define an intermediate size between size_extension_min and size_extension for planning
   bound_mode:         kExtendedBound
   safety_extension:   [3.0, 4.0, 3.0] # Safety extension outside the bounding box of a path segment used to improve it by pushing it away from obstacles
+
+  # Melo
+  nominal_flight_height : 0.4 # Nominal flight height for robot 0
+  delta_factor: 0.4 # Offset factor which will be multiplied by robot_id and added to nominal_flight_height
 #-------------------------------------------------------------------------------
 # SENSOR CONFIGURATION
 #  sensor_list: Define a set of sensors relevant to the exploration task.
@@ -40,14 +44,14 @@ BoundedSpaceParams:
     max_val:        [3000.0, 3000.0, 300.0]
   Local:
     type:           kCuboid
-    min_val:        [-15.0, -15.0, -3.0]
-    max_val:        [15.0, 15.0, 3.0]
+    min_val:        [-15.0, -15.0, 0.0] #[-15.0, -15.0, -3.0]
+    max_val:        [15.0, 15.0, 0.0] #[15.0, 15.0, 3.0]
     min_extension:  [-20.0, -20.0, -20.0]
     max_extension:  [20.0, 20.0, 20.0]
   LocalSearch:
     type:           kCuboid
-    min_val:        [-50.0, -50.0, -1.0]
-    max_val:        [50.0, 50.0, 1.0]
+    min_val:        [-50.0, -50.0, 0.0] #[-50.0, -50.0, -1.0]
+    max_val:        [50.0, 50.0, 0.0] #[50.0, 50.0, 1.0]
   # Adaptive OBB:
   LocalAdaptiveExp:
     type:           kCuboid
@@ -71,8 +75,9 @@ RandomSamplerParams:
       pdf_type:       kUniform
       sample_mode:    kLocal
     Z:
-      pdf_type:       kUniform
-      sample_mode:    kLocal
+      pdf_type:       kConst #kUniform
+      sample_mode:    kManual #kLocal
+      const_val: 0.5 # Melo
     Heading:
       pdf_type:       kUniform
       sample_mode:    kManual
@@ -133,12 +138,12 @@ PlanningParams:
   nearest_range:    2.0 # The max range within which a new vertex can be connected to an existing vertex
   nearest_range_min: 0.5 # >= edge_length_min
   nearest_range_max: 2.0 # <= edge_length_max
-  use_current_state: true # If true, it will use the current state to plan from instead of the state provided by the PCI in the service call
+  use_current_state: false #true # If true, it will use the current state to plan from instead of the state provided by the PCI in the service call
   use_ray_model_for_volumetric_gain: true # if false, will check voxel by voxel in the sensor frustum 
   exp_gain_voxel_size: 0.8 # used if use_ray_model_for_volumetric_gain is false
   # Gains:
   path_length_penalty: 0.04
-  path_direction_penalty: 0.05 # (0.25 for pittsburgh mine) Reduced from 0.1 to reduce oscillation (lower = less penalty for non-forward paths)
+  path_direction_penalty: 0.25 # (0.25 for pittsburgh mine) Reduced from 0.1 to reduce oscillation (lower = less penalty for non-forward paths)
   occupied_voxel_gain: 0.0
   free_voxel_gain:  0.0 # prefer directions towards more free voxels in case of the dead-end
   unknown_voxel_gain: 60.0
@@ -154,7 +159,7 @@ PlanningParams:
   clustering_radius: 0.5
   path_interpolation_distance: 0.5
   
-  time_budget_limit: 480 # seconds
+  time_budget_limit: 3600 #480 # seconds
   auto_global_planner_enable: true  # Enable global planner to escape local minima (triggers after 4 consecutive iterations with no frontiers)
   auto_homing_enable: true
   go_home_if_fully_explored: true

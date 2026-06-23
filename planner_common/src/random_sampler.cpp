@@ -125,6 +125,12 @@ void RandomSamplerBase::setBound(double min_val, double max_val) {
   max_val_ = max_val;
 }
 
+// Melo
+// void RandomSamplerBase::setZBound(double z) {
+//   const_val_ = z;
+// }
+// Melo
+
 void RandomSamplerBase::setDistributionParams(double mean_val, double std_val) {
   // Set directly without checking mode.
   mean_val_ = mean_val;
@@ -200,6 +206,16 @@ bool RandomSampler::setBound(Eigen::Vector3d& min_val,
   return true;
 }
 
+// Melo
+// bool RandomSampler::setZBound(double z) {
+//   random_sampler_base_[2].setZBound(z);
+//   return true;
+// }
+bool RandomSamplerBase::isConstSampler() const {
+  return pdf_type_ == RandomDistributionType::kConst;
+}
+// Melo
+
 bool RandomSampler::setRotation(Eigen::Vector3d& rotations) {
   Eigen::Matrix3d rot_W2B;
   rot_W2B = Eigen::AngleAxisd(rotations[0], Eigen::Vector3d::UnitZ()) *
@@ -250,6 +266,19 @@ void RandomSampler::RandomSampler::reset() {
   invalid_samples_.clear();
 }
 
+// void RandomSampler::generate(StateVec& current_state, StateVec& sample_state) {
+//   double r = chi_squared_->operator()(generator_);
+//   for (int i = 0; i < 4; ++i) {
+//     sample_state[i] = random_sampler_base_[i].generate(0, r);
+//   }
+//   Eigen::Vector3d sample_xyz = rot_B2W * sample_state.head(3);
+//   sample_state[0] = sample_xyz[0] + current_state[0];
+//   sample_state[1] = sample_xyz[1] + current_state[1];
+//   sample_state[2] = sample_xyz[2] + current_state[2];
+//   sample_state[3] = sample_state[3] + current_state[3];
+// }
+
+// Melo
 void RandomSampler::generate(StateVec& current_state, StateVec& sample_state) {
   double r = chi_squared_->operator()(generator_);
   for (int i = 0; i < 4; ++i) {
@@ -258,9 +287,15 @@ void RandomSampler::generate(StateVec& current_state, StateVec& sample_state) {
   Eigen::Vector3d sample_xyz = rot_B2W * sample_state.head(3);
   sample_state[0] = sample_xyz[0] + current_state[0];
   sample_state[1] = sample_xyz[1] + current_state[1];
-  sample_state[2] = sample_xyz[2] + current_state[2];
+  if (random_sampler_base_[2].isConstSampler()){
+      sample_state[2] = sample_xyz[2];
+  }
+  else{
+      sample_state[2] = sample_xyz[2] + current_state[2];
+  }
   sample_state[3] = sample_state[3] + current_state[3];
 }
+// Melo
 
 void RandomSampler::pushSample(StateVec& state, bool valid) {
   if (valid) {

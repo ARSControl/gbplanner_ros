@@ -533,6 +533,20 @@ bool RobotParams::loadParams(std::string ns) {
     ROSPARAM_WARN(param_name, relax_ratio);
   }
 
+  // Melo
+  param_name = ns + "/nominal_flight_height";
+  if (!ros::param::get(param_name, nominal_flight_height)) {
+    nominal_flight_height = 0.5;
+    ROSPARAM_WARN(param_name, nominal_flight_height);
+  }
+
+  param_name = ns + "/delta_factor";
+  if (!ros::param::get(param_name, delta_factor)) {
+    delta_factor = 0.5;
+    ROSPARAM_WARN(param_name, delta_factor);
+  }
+  // Melo
+  
   parse_str = "";
   param_name = ns + "/bound_mode";
   ros::param::get(param_name, parse_str);

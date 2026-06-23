@@ -105,7 +105,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
- INCLUDE_DIRS include
+ INCLUDE_DIRS
  LIBRARIES visualization_tools
  CATKIN_DEPENDS pcl_ros roscpp rospy sensor_msgs std_msgs
 #  DEPENDS system_lib

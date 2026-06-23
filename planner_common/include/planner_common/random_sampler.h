@@ -36,6 +36,12 @@ class RandomSamplerBase {
   double generate(double current_val, double devisor = 1);
   double getZOffset();
 
+  // Melo
+  // void setZBound(double z);
+
+  bool isConstSampler() const;
+  // Melo
+
  private:
   std::mt19937 generator_;
   RandomDistributionType pdf_type_;
@@ -65,7 +71,10 @@ class RandomSampler {
   bool setRotation(Eigen::Vector3d& rotations);
   bool setDistributionParams(Eigen::Vector3d& mean_val,
                              Eigen::Vector3d& std_val);
-
+  
+  // Melo
+  // bool setZBound(double z);
+  // Melo
   void reset();
   void generate(StateVec& current_state, StateVec& sample_state);
 

@@ -285,7 +285,7 @@ class Rrg {
   
   // ARS control
   // Publishers
-  ros::Publisher global_graph_pub_;
+  ros::Publisher self_global_graph_pub_;
   ros::Publisher gmm_pub_;
   std::unordered_map<int, ros::Publisher> graph_publishers_;
   ros::Publisher global_graph_size_pub_;
@@ -297,10 +297,10 @@ class Rrg {
   ros::Subscriber received_graph_sub_;
   
   // Timers
-  // ros::Timer global_graph_pub_timer_;
+  ros::Timer self_global_graph_pub_timer_;
   ros::Timer graph_size_timer_;
 
-  // void publishGlobalGraphTimerCallback(const ros::TimerEvent& event);
+  void publishSelfGlobalGraphTimerCallback(const ros::TimerEvent& event);
   void publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg);
   void receivedNeighbourGraph(const planner_msgs::Graph& graph_msg);
   void mergedGraphCallback(const planner_msgs::Graph& graph_msg);
@@ -316,6 +316,9 @@ class Rrg {
   // Melo
   void computeVolumetricGainRayModelNoBoundMelo(StateVec& state,
                                             VolumetricGain& vgain);
+  bool homing_ongoing_;
+  bool require_global_replanning_;
+  // Melo
   // ARS control
 
   ros::Subscriber semantics_subscriber_;

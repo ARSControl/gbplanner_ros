@@ -24,16 +24,10 @@ void merge::GraphMerger::initializeAttributes(){
     // Subscribers
     // global_graph_subscriber_ = nh_.subscribe("merging_node/fusion", 10, &GraphMerger::GraphCallback, this);
     gmm_sub_ = nh_.subscribe("gmm_node/vertices_to_keep", 10, &GraphMerger::filteredSubgraphCallback, this);
-
-
-    stop_planner_client_ = nh_.serviceClient<planner_msgs::pci_stop>("pci_stop", 10);
-    // test_ = nh_.subscribe("/ok", 10, &GraphMerger::loadGraphsCallback, this);
+    self_global_graph_sub_ = nh_.subscribe("gbplanner_node/global_graph", 10, &GraphMerger::selfGraphMergeCallback, this);
 
     // Melo
     loadParams();
-
-    ROS_INFO("Robot nominal height: %f ", robot_params_.nominal_flight_height);
-    ROS_INFO("Robot delta factor: %f ", robot_params_.delta_factor);
 
     int num_robots;
     nh_.getParam("/num_robots", num_robots);
@@ -308,6 +302,16 @@ void merge::GraphMerger::findClosestGroup(std::unordered_map<int, std::vector<Ve
             ROS_ERROR("Group assigned is not an original canididate!");
         }
     }
+}
+
+void merge::GraphMerger::selfGraphMergeCallback(const planner_msgs::Graph& msg){
+    this->reset();
+
+    // Own graph
+    global_graph_manager_->convertMsgToGraph(msg);
+
+    // Perform the merging process
+    this->mergingProcess();
 }
 
 void merge::GraphMerger::filteredSubgraphCallback(const planner_msgs::Merge& msg){

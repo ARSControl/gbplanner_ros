@@ -129,8 +129,8 @@ void Rrg::initializeAttributes() {
   }
 
   // Enable for single drone graph merge 
-  // global_graph_pub_timer_ = nh_.createTimer(ros::Duration(100.0),&Rrg::publishGlobalGraphTimerCallback, this);
-  // global_graph_pub_ = nh_.advertise<planner_msgs::Merge>("gmm_node/vertices_to_keep", 10);
+  self_global_graph_pub_timer_ = nh_.createTimer(ros::Duration(100.0),&Rrg::publishSelfGlobalGraphTimerCallback, this);
+  self_global_graph_pub_ = nh_.advertise<planner_msgs::Graph>("gbplanner_node/global_graph", 10);
 
   // Enable for multi-drone graph merge
   global_graph_trigger_sub_ = nh_.subscribe("trigger_communication", 10, &Rrg::publishGlobalGraphTimerCallback, this);
@@ -142,23 +142,30 @@ void Rrg::initializeAttributes() {
   graph_size_timer_ = nh_.createTimer(ros::Duration(1), &Rrg::publishGlobalGraphSizeCallback, this);
   global_graph_size_pub_ = nh_.advertise<std_msgs::Int32>("global_graph_size", 10);
   merged_global_graph_subscriber_ = nh_.subscribe("merging_node/merged_graph", 10, &Rrg::mergedGraphCallback, this);
+
+  // Melo
+  homing_ongoing_ = false;
+  require_global_replanning_ = false;
+  // Melo
 }
 
 // Publishes the own global graph into the topic using a timer (enable for single drone graph merge)
-// void Rrg::publishGlobalGraphTimerCallback(const ros::TimerEvent& event){
-//   planner_msgs::Merge global_graph_msg.input_graph;
-//   global_graph_->convertGraphToMsg(global_graph_msg.input_graph);
-//   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",
-//             global_graph_msg.input_graph.vertices.size(),
-//             global_graph_msg.input_graph.edges.size());
-//   global_graph_pub_.publish(global_graph_msg);
-// }
+void Rrg::publishSelfGlobalGraphTimerCallback(const ros::TimerEvent& event){
+  planner_msgs::Graph global_graph_msg;
+  global_graph_->convertGraphToMsg(global_graph_msg);
+  ROS_INFO("Publishing global graph with %zu nodes and %zu edges",
+            global_graph_msg.vertices.size(),
+            global_graph_msg.edges.size());
+
+  self_global_graph_pub_.publish(global_graph_msg);
+}
 
 // Publish the global graph into the topic of the robot in communication range (enable for multi-drone graph merge)
 void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg){
   if(global_graph_->vertices_map_.size() < 2){
     ROS_INFO("[%d] Own global graph contains less than two vertices, skipping the merging procedure.", robot_id);
   }else{
+    require_global_replanning_ = true; // melo 
     planner_msgs::Graph global_graph_msg;
     int neighbour_id;
     global_graph_->convertGraphToMsg(global_graph_msg);
@@ -221,21 +228,25 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
   global_graph_frontier_addition_timer_.start(); 
   periodic_timer_.start();
 
-  // Set the request for running the global graph for frontier repositioning after communication
-  planner_msgs::pci_global srv;
-  srv.request.not_exe_path = false;
-  srv.request.set_auto = true;
-  srv.request.bound_mode = 0;
-  srv.request.vel_max = 0.0;
-  srv.request.id = 0;
-  srv.request.not_check_frontier = false;
-  srv.request.ignore_time = false;
+  if(!homing_ongoing_ && require_global_replanning_){ // Melo
+    // Set the request for running the global graph for frontier repositioning after communication
+    planner_msgs::pci_global srv;
+    srv.request.not_exe_path = false;
+    srv.request.set_auto = true; // True if you want to restore the local planner after the global planner
+    srv.request.bound_mode = 0;
+    srv.request.vel_max = 0.0;
+    srv.request.id = 0;
+    srv.request.not_check_frontier = false;
+    srv.request.ignore_time = false;
 
-  if (trigger_global_planner_.call(srv) && srv.response.success) {
-    ROS_INFO("Triggered global planner after graph merge.");
-  } else {
-    ROS_ERROR("Failed to trigger global planner after graph merge.");
+    if (trigger_global_planner_.call(srv) && srv.response.success) {
+      ROS_INFO("Triggered global planner after graph merge.");
+    } else {
+      ROS_ERROR("Failed to trigger global planner after graph merge.");
+    }
   }
+
+  require_global_replanning_ = false; // Melo
 }
 // ARS Control
 
@@ -269,8 +280,8 @@ void Rrg::reset() {
 
   // Used to set the first graph node to the desired height
   // Melo
-  const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
-  root_state[2] = fixed_flight_z;
+  // const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
+  // root_state[2] = fixed_flight_z;
   // Melo
 
   stat_->init(root_state);
@@ -3408,15 +3419,9 @@ void Rrg::computeVolumetricGainRayModelNoBoundMelo(StateVec& state,
 void Rrg::setRootStateForPlanning(const geometry_msgs::Pose& root_pose) {
   // If require plan ahead --> use the end pose from the last best path.
   // Otherwise, use current pose.
-
-  // const double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1); // Melo
-
   state_for_planning_[0] = root_pose.position.x;
   state_for_planning_[1] = root_pose.position.y;
   state_for_planning_[2] = root_pose.position.z;
-
-  // This is used to fix the height of the graph plane generated
-  // state_for_planning_[2] = fixed_flight_z; // Melo
 
   state_for_planning_[3] = tf::getYaw(root_pose.orientation);
   if ((state_for_planning_[0] == 0.0) && (state_for_planning_[1] == 0.0) &&
@@ -3763,6 +3768,8 @@ std::vector<geometry_msgs::Pose> Rrg::getGlobalPath(
 }
 
 std::vector<geometry_msgs::Pose> Rrg::getHomingPath(std::string tgt_frame) {
+  homing_ongoing_ = true; // Melo
+
   std::vector<geometry_msgs::Pose> ret_path;
   ret_path = searchHomingPath(tgt_frame, current_state_);
   if (ret_path.size() < 1) return ret_path;
@@ -4402,10 +4409,6 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
   StateVec first_state;
   first_state << vertices[0]->state[0], vertices[0]->state[1],
       vertices[0]->state[2], vertices[0]->state[3];
-  
-  // Melo
-  // first_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
-
   Vertex* nearest_vertex = NULL;
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
     return false;
@@ -4461,8 +4464,6 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
     StateVec new_state;
     new_state << vertices[i]->state[0], vertices[i]->state[1],
         vertices[i]->state[2], vertices[i]->state[3];
-    // Melo
-    // new_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
     Eigen::Vector3d origin(parent_vertex->state[0], parent_vertex->state[1],
                            parent_vertex->state[2]);
     Eigen::Vector3d direction(new_state[0] - origin[0],
@@ -4564,8 +4565,6 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
       0.0;
   Vertex* nearest_vertex = NULL;
 
-  // Melo
-  // first_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
   //Check if there is a near vertex to first state
   if (!graph_manager->getNearestVertex(&first_state, &nearest_vertex))
     return false;
@@ -4627,8 +4626,6 @@ bool Rrg::addRefPathToGraph(const std::shared_ptr<GraphManager> graph_manager,
                               new_state[2] - origin[2]);
     double direction_norm = direction.norm();
 
-    // Melo
-    // new_state[2] = robot_params_.nominal_flight_height + robot_params_.delta_factor * (robot_id - 1);
     Vertex* new_vertex =
         new Vertex(graph_manager->generateVertexID(), new_state);
     // new_vertex->type = vertices[i]->type;

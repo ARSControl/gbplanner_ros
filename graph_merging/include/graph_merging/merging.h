@@ -91,6 +91,7 @@ namespace merge{
 
     // Melo
     bool loadParams();
+    void selfGraphMergeCallback(const planner_msgs::Graph& msg);
 
     std::string world_frame_ = "world";
 
@@ -104,15 +105,13 @@ namespace merge{
 
     // Subscribers
     ros::Subscriber global_graph_subscriber_;
-    ros::Subscriber test_;
+    ros::Subscriber self_global_graph_sub_;
     ros::Subscriber gmm_sub_;
 
     // Publishers
     ros::Publisher merged_graph_pub_;
     ros::Publisher gmm_pub_;
     ros::Publisher kl_div_pub_;
-
-    ros::ServiceClient stop_planner_client_;
 
     // For debugging purposes
     std::unordered_map<int, std::vector<int>> vertex_to_candidate_groups_;

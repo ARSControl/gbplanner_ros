@@ -318,7 +318,20 @@ class Rrg {
                                             VolumetricGain& vgain);
   bool homing_ongoing_;
   bool require_global_replanning_;
+
   // Melo
+
+
+
+
+  GraphStatus buildGridGraphExpand(StateVec state, Eigen::Vector3d robot_size,
+                                     Eigen::Vector3d grid_min,
+                                     Eigen::Vector3d grid_max,
+                                     Eigen::Vector3d grid_res, double heading);
+                          
+  BoundedSpaceParams grid_graph_params_;
+  Eigen::Vector3d grid_graph_min_val_, grid_graph_max_val_, grid_graph_res_val_;
+
   // ARS control
 
   ros::Subscriber semantics_subscriber_;

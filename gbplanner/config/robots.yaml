@@ -18,16 +18,16 @@ robots:
   
   - name: rmf_obelix_2
     base_name: rmf_obelix
-    x: 30.0
-    y: 0.0
-    z: 1.0
+    x: 20.2
+    y: 13.0
+    z: 0.5
   
   # Uncomment to add more robots:
   - name: rmf_obelix_3
     base_name: rmf_obelix
-    x: 73.5
-    y: 30.0
-    z: 1.5
+    x: -16.3
+    y: 15.0
+    z: 0.5
 
 # # Configuration for darpa cave
 # robots:

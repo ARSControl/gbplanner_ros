@@ -271,6 +271,7 @@ struct PlanningParams {
   double yaw_rate_max;
   bool yaw_tangent_correction;
   // Graph building
+  bool build_grid_local_graph;
   PlanningModeType type;
   RRModeType rr_mode;
   double edge_length_min;

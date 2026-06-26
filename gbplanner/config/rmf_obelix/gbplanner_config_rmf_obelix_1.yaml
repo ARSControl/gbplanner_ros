@@ -57,6 +57,11 @@ BoundedSpaceParams:
     type:           kCuboid
     min_val:        [-10.0, -10.0, -0.75]
     max_val:        [10.0, 10.0, 0.75]
+  GridGraphLocal:
+    type: kCuboid
+    min_val:        [-10.0, -10.0, -1.0]
+    max_val:        [10.0, 10.0, 0.2]
+    min_extension:  [0.5, 0.5, 0.2] # Resolution
 NoGainZones:
   g1:  # Back
     type:           kCuboid
@@ -157,6 +162,10 @@ PlanningParams:
   leafs_only_for_volumetric_gain: true # Whether to calculate gain of the entire path or only the leaf nodes
   cluster_vertices_for_gain: true
   clustering_radius: 0.5
+
+  build_grid_local_graph: true
+
+
   path_interpolation_distance: 0.5
   
   time_budget_limit: 3600 #480 # seconds

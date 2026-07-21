@@ -495,7 +495,7 @@ int main(int argc, char** argv)
 
   ros::Subscriber subgbRuntime = nh.subscribe<std_msgs::Float32MultiArray> ("gbp_time_log", 5, gbplannerruntimeHandler);
 
-  ros::Subscriber globalGraphSizeSub = nh.subscribe<std_msgs::Int32> ("global_graph_size", 5, globalGraphSizeCallback);
+  ros::Subscriber globalGraphSizeSub = nh.subscribe<std_msgs::Int32> ("global_graph_size", 10, globalGraphSizeCallback);
 
   ros::Publisher pubOverallMap = nh.advertise<sensor_msgs::PointCloud2> ("overall_map", 5);
 
@@ -543,9 +543,9 @@ int main(int argc, char** argv)
   // metricFile += "_" + timeString + ".txt";
   // trajFile += "_" + timeString + ".txt";
   // globalGraphSizeFile += "_" + timeString + ".txt";
-  metricFile += "_run_1.txt";
-  trajFile += "_run_1.txt";
-  globalGraphSizeFile += "_run_1.txt";
+  metricFile += "_run_5.txt";
+  trajFile += "_run_5.txt";
+  globalGraphSizeFile += "_run_5.txt";
   metricFilePtr = fopen(metricFile.c_str(), "w");
   trajFilePtr = fopen(trajFile.c_str(), "w");
   globalGraphSizeFilePtr = fopen(globalGraphSizeFile.c_str(), "w");

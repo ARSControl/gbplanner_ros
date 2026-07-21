@@ -299,13 +299,14 @@ class Rrg {
   // Timers
   ros::Timer self_global_graph_pub_timer_;
   ros::Timer graph_size_timer_;
+  ros::Timer save_graph_timer_; // Melo
 
   void publishSelfGlobalGraphTimerCallback(const ros::TimerEvent& event);
   void publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigger& trigger_msg);
   void receivedNeighbourGraph(const planner_msgs::Graph& graph_msg);
   void mergedGraphCallback(const planner_msgs::Graph& graph_msg);
   void publishGlobalGraphSizeCallback(const ros::TimerEvent& event);
-
+  void saveGraphCallback(const ros::TimerEvent& event); // Melo
   ros::ServiceClient trigger_global_planner_;
 
   // To stop callback accessing the global graph while modifying it

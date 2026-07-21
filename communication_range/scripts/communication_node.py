@@ -9,7 +9,7 @@ from planner_msgs.msg import CommunicationTrigger
 class DroneCommNode:
     def __init__(self):
         # Parameters
-        self.comm_threshold = rospy.get_param("~communication_threshold", 20.0)
+        self.comm_threshold = rospy.get_param("~communication_threshold", 10.0)
         self.cooldown_time = rospy.get_param("~cooldown_time", 30.0)
         self.update_period = rospy.get_param("~update_period", 0.1)
         self.odometry_topic = rospy.get_param(

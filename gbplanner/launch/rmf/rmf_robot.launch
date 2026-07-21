@@ -124,10 +124,10 @@
 
   <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
-      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_metrics" />
-      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_trajectory" />
-      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
-      <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
+      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_metrics" />
+      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_trajectory" />
+      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_global_graph_size" />
+      <!-- <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" /> -->
 
       <param name="overallMapVoxelSize" type="double" value="0.5" />
       <param name="exploredAreaVoxelSize" type="double" value="0.3" />
@@ -146,38 +146,6 @@
     <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
 
     <!-- <node pkg="visualization_tools" type="realTimePlot.py" name="realTimePlot" output="screen" respawn="true"/> -->
-
-
-
-
-
-
-
-    <!-- #################################### -->
-    <!-- testing -->
-    <!-- <include file="$(find local_planner)/launch/local_planner.launch" >
-      <arg name="cameraOffsetZ" value="0"/>
-      <arg name="goalX" value="0"/>
-      <arg name="goalY" value="0"/>
-      <arg name="RobotID_TF_prefix" value="$(arg robot_name)/"/>
-    </include>
-  
-
-    <node name="smb_path_tracker_node" pkg="smb_path_tracker" type="smb_path_tracker_ros_node" output="screen"> -->
-      <!-- <remap from="cmd_vel" to="smb_velocity_controller/cmd_vel" /> -->
-      <!-- <remap from="odometry" to="odometry_sensor1/odometry" /> -->
-      <!-- <remap from="cmd_vel" to="smb_velocity_controller/cmd_vel" /> -->
-      <!-- <param name="critical_angle" value="0.52"/>
-      <param name="max_ang_vel" value="0.15"/>
-      <param name="desired_vel" value="0.5"/>
-      <param name="look_ahead_error_margin" value="1.2"/>
-      <param name="look_ahead_distance" value="1.2"/>
-      <param name="dt" value="0.05"/>
-      <param name="goal_reaching_threshold" value="1.0"/>
-      <param name="robot_frame" value="$(arg robot_name)/base_link"/>
-      <param name="fixed_frame" value="world"/>
-    </node> -->
-    <!-- #################################### -->
   </group>
 
 </launch>

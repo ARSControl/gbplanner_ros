@@ -16,6 +16,6 @@ int main(int argc, char** argv) {
   explorer::Gbplanner planner(nh, nh_private);
 
   ros::spin();
-
+  
   return 0;
 }

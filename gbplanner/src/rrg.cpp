@@ -146,11 +146,27 @@ void Rrg::initializeAttributes() {
   // Melo
   homing_ongoing_ = false;
   require_global_replanning_ = false;
+  save_graph_timer_ = nh_.createTimer(ros::Duration(1800.0), &Rrg::saveGraphCallback, this);
   // Melo
+}
+
+// Melo
+void Rrg::saveGraphCallback(const ros::TimerEvent& event){
+  ROS_INFO("[%i] Saving global graph...", robot_id);
+  std::string path = "/root/gbplanner2_ws/graph_" + std::to_string(robot_id) + ".bin";
+  saveGraph(path);
+  ROS_INFO("[%i] Saved global graph!", robot_id);
 }
 
 // Publishes the own global graph into the topic using a timer (enable for single drone graph merge)
 void Rrg::publishSelfGlobalGraphTimerCallback(const ros::TimerEvent& event){
+  if (require_merging || global_graph_->vertices_map_.size() < 2) return;
+
+  require_merging = true;
+  global_graph_update_timer_.stop();
+  global_graph_frontier_addition_timer_.stop();
+  periodic_timer_.stop();
+
   planner_msgs::Graph global_graph_msg;
   global_graph_->convertGraphToMsg(global_graph_msg);
   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",
@@ -165,7 +181,7 @@ void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigg
   if(global_graph_->vertices_map_.size() < 2){
     ROS_INFO("[%d] Own global graph contains less than two vertices, skipping the merging procedure.", robot_id);
   }else{
-    require_global_replanning_ = true; // melo 
+    require_global_replanning_ = true; // Melo 
     planner_msgs::Graph global_graph_msg;
     int neighbour_id;
     global_graph_->convertGraphToMsg(global_graph_msg);
@@ -186,7 +202,7 @@ void Rrg::publishGlobalGraphTimerCallback(const planner_msgs::CommunicationTrigg
 // Publish the global graph size for metrics extraction
 void Rrg::publishGlobalGraphSizeCallback(const ros::TimerEvent& event){
   if (require_merging) return;
-
+  
   std_msgs::Int32 global_graph_size;
   global_graph_size.data = global_graph_->vertices_map_.size();
   
@@ -223,11 +239,6 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
 
   visualization_->visualizeGlobalGraph(global_graph_); 
 
-  require_merging = false;
-  global_graph_update_timer_.start();
-  global_graph_frontier_addition_timer_.start(); 
-  periodic_timer_.start();
-
   if(!homing_ongoing_ && require_global_replanning_){ // Melo
     // Set the request for running the global graph for frontier repositioning after communication
     planner_msgs::pci_global srv;
@@ -245,6 +256,11 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
       ROS_ERROR("Failed to trigger global planner after graph merge.");
     }
   }
+
+  require_merging = false;
+  global_graph_update_timer_.start();
+  global_graph_frontier_addition_timer_.start(); 
+  periodic_timer_.start();
 
   require_global_replanning_ = false; // Melo
 }
@@ -3768,8 +3784,6 @@ std::vector<geometry_msgs::Pose> Rrg::getGlobalPath(
 }
 
 std::vector<geometry_msgs::Pose> Rrg::getHomingPath(std::string tgt_frame) {
-  homing_ongoing_ = true; // Melo
-
   std::vector<geometry_msgs::Pose> ret_path;
   ret_path = searchHomingPath(tgt_frame, current_state_);
   if (ret_path.size() < 1) return ret_path;
@@ -4003,6 +4017,7 @@ std::vector<geometry_msgs::Pose> Rrg::getBestPath(std::string tgt_frame,
       const double kTimeDelta = 20;
       if (time_to_home > time_remaining - kTimeDelta) {
         ROS_WARN_COND(global_verbosity >= Verbosity::PLANNER_STATUS, "REACHED TIME LIMIT: HOMING ENGAGED.");
+        homing_ongoing_ = true; // Melo
         if (planning_params_.path_safety_enhance_enable) {
           std::vector<geometry_msgs::Pose> mod_path;
           if (improveFreePath(homing_path, mod_path, true)) {

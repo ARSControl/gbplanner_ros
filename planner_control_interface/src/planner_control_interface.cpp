@@ -292,37 +292,8 @@ bool PlannerControlInterface::globalPlannerCallback(
     planner_msgs::pci_global::Response& res) {
   
   // ARS Control
-  // Stop local auto planner
-  // trigger_mode_ = PlannerTriggerModeType::kManual;
-  // run_en_ = false;
-  // search_request_ = false;
-  // homing_request_ = false;
-  // init_request_ = false;
-  // go_to_waypoint_request_ = false;
-  // go_to_waypoint_with_checking_ = false;
-  
-  
-
-
-
-
-  // Melo
-  // if (!homing_request_){
-  //   pci_manager_->stopPCI();
-  //   resetPlanner();
-  // }
-
   pci_manager_->stopPCI();
   resetPlanner();
-  // Melo
-
-
-  // pci_manager_->stopPCI();
-  // current_path_.clear();
-  
-  // resetPlanner() // Melo
-  
-  // pci_manager_->setStatus(PCIManager::PCIStatus::kReady); // Melo
   // ARS Control
 
   global_request_ = true;

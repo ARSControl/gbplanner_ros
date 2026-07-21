@@ -151,6 +151,7 @@ void Rrg::initializeAttributes() {
 
 // Publishes the own global graph into the topic using a timer (enable for single drone graph merge)
 void Rrg::publishSelfGlobalGraphTimerCallback(const ros::TimerEvent& event){
+  if (require_merging) return;
   planner_msgs::Graph global_graph_msg;
   global_graph_->convertGraphToMsg(global_graph_msg);
   ROS_INFO("Publishing global graph with %zu nodes and %zu edges",
@@ -223,16 +224,11 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
 
   visualization_->visualizeGlobalGraph(global_graph_); 
 
-  require_merging = false;
-  global_graph_update_timer_.start();
-  global_graph_frontier_addition_timer_.start(); 
-  periodic_timer_.start();
-
   if(!homing_ongoing_ && require_global_replanning_){ // Melo
     // Set the request for running the global graph for frontier repositioning after communication
     planner_msgs::pci_global srv;
     srv.request.not_exe_path = false;
-    srv.request.set_auto = true; // True if you want to restore the local planner after the global planner
+    srv.request.set_auto = true; // True if you want to resume the local planner after the global planner
     srv.request.bound_mode = 0;
     srv.request.vel_max = 0.0;
     srv.request.id = 0;
@@ -245,6 +241,11 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
       ROS_ERROR("Failed to trigger global planner after graph merge.");
     }
   }
+
+  require_merging = false;
+  global_graph_update_timer_.start();
+  global_graph_frontier_addition_timer_.start(); 
+  periodic_timer_.start();
 
   require_global_replanning_ = false; // Melo
 }
@@ -1207,157 +1208,6 @@ void Rrg::expandGraphEdgesBlindly(std::shared_ptr<GraphManager> graph_manager,
   rep.status = ExpandGraphStatus::kSuccess;
 }
 
-Rrg::GraphStatus Rrg::buildGridGraphExpand(StateVec state, Eigen::Vector3d robot_size,
-                                     Eigen::Vector3d grid_min,
-                                     Eigen::Vector3d grid_max,
-                                     Eigen::Vector3d grid_res, double heading) {
-
-  int loop_count = 0;
-  int num_vertices = 1;
-  int num_edges = 0;
-  GraphManager* grid_graph = new GraphManager();
-
-  // Root vertex must be exactly at the state.
-
-  if ((grid_min[0] > 0.0) || (grid_min[1] > 0.0) || (grid_min[2] > 0.0)) {
-    return GraphStatus::NOT_OK;
-  }
-
-  if ((grid_max[0] < 0.0) || (grid_max[1] < 0.0) || (grid_max[2] < 0.0)) {
-    return GraphStatus::NOT_OK;
-  }
-
-  if ((grid_res[0] == 0.0) || (grid_res[1] == 0.0) || (grid_res[2] == 0.0)) {
-    return GraphStatus::NOT_OK;
-  }
-
-  // Add all nodes first.
-  int vertex_id = 1;
-  std::unordered_map<int, Vertex*> vertices_map;
-  int num_nodes[3];
-  // int root_node_ind[3];
-  for (int i = 0; i < 3; ++i) {
-    // truncate according to setting grid resolution.
-    grid_min[i] = -grid_res[i] * std::ceil(-grid_min[i] / grid_res[i]);
-    grid_max[i] = grid_res[i] * std::ceil(grid_max[i] / grid_res[i]);
-    num_nodes[i] = (int)((grid_max[i] - grid_min[i]) / grid_res[i]) + 1;
-    if (num_nodes[i] == 0) num_nodes[i] = 1;
-    // root_node_ind[i] = (int)(-grid_min[i] / grid_res[i]);
-  }
-  ROS_WARN_COND(global_verbosity >= Verbosity::DEBUG, "Number of nodes [%d][%d][%d].", num_nodes[0], num_nodes[1],
-           num_nodes[2]);
-
-  // int num_total_nodes = num_nodes[0] * num_nodes[1] * num_nodes[2];
-  // Vertex** vertices_mat = new Vertex*[num_total_nodes];
-  // bool* collision_free_mat = new bool[num_total_nodes];
-
-  // for (int i = 0; i < num_nodes[0]; ++i) {
-  //   for (int j = 0; j < num_nodes[1]; ++j) {
-  //     for (int k = 0; k < num_nodes[2]; ++k) {
-  //       int ind = i * num_nodes[1] * num_nodes[2] + j * num_nodes[2] + k;
-  //       collision_free_mat[ind] = false;
-  //     }
-  //   }
-  // }
-
-  ROS_WARN_COND(global_verbosity >= Verbosity::DEBUG, "Initialized matrices.");
-
-  double cos_h = 1.0, sin_h = 0.0;
-  if (heading) {
-    cos_h = std::cos(heading);
-    sin_h = std::sin(heading);
-  }
-  // int root_node_ind_arr = root_node_ind[0] * num_nodes[1] * num_nodes[2] +
-  //                         root_node_ind[1] * num_nodes[2] + root_node_ind[2];
-
-  int free_vertex_count = 0;
-  for (int i = 0; i < num_nodes[0]; ++i) {
-    for (int j = 0; j < num_nodes[1]; ++j) {
-      for (int k = 0; k < 1; ++k) {
-        // int cur_ind = i * num_nodes[1] * num_nodes[2] + j * num_nodes[2] + k;
-        // if (cur_ind == root_node_ind_arr) {
-        //   // Force the root node as free; otherwise it is useless to build the
-        //   // graph.
-        //   collision_free_mat[cur_ind] = true;
-        //   vertices_mat[cur_ind] = root_vertex_;
-        //   continue;
-        // }
-
-        if ((loop_count++ > planning_params_.num_loops_max) ||
-          (num_vertices >= planning_num_vertices_max_) ||
-          (num_edges >= planning_num_edges_max_)) {
-            ROS_WARN_COND(global_verbosity >= Verbosity::DEBUG, "loop count %d num_vertex %d num_edges %d.",
-                          loop_count, num_vertices, num_edges);
-          
-          return GraphStatus::OK;
-        }
-
-        double x_val = grid_min.x() + i * grid_res.x();
-        double y_val = grid_min.y() + j * grid_res.y();
-        // double z_val = grid_min.z() + k * grid_res.z();
-        double fixed_flight_z = robot_params_.nominal_flight_height + robot_params_.delta_factor*(robot_id - 1);
-        double z_val = fixed_flight_z;
-        if (heading) {
-          double x_val_, y_val_;
-          x_val_ = x_val * cos_h - y_val * sin_h;
-          y_val_ = x_val * sin_h + y_val * cos_h;
-          x_val = x_val_;
-          y_val = y_val_;
-        }
-
-        x_val += state.x();
-        y_val += state.y();
-        // z_val += state.z();
-       
-        Eigen::Vector3d voxel(x_val, y_val, z_val);
-        bool hanging = false;
-        // if (robot_params_.type == RobotType::kGroundRobot) {
-        //   Eigen::Vector3d sample;
-        //   sample = Eigen::Vector3d(voxel[0], voxel[1], voxel[2]) +
-        //           robot_params_.center_offset;
-        //   MapManager::VoxelStatus vs;
-        //   double ground_dist = projectSample(sample, vs);
-        //   // if (ground_dist < 0.0) continue;
-        //   if (vs == MapManager::VoxelStatus::kUnknown) {
-        //     hanging = true;
-        //   }
-
-        //   sample[2] -= (ground_dist - planning_params_.max_ground_height);
-        //   voxel[0] = sample[0];
-        //   voxel[1] = sample[1];
-        //   voxel[2] -= (ground_dist - planning_params_.max_ground_height);
-        // }
-
-
-        // Vertex* new_vertex =
-        //     new Vertex(vertex_id++, new_state);
-        // new_vertex->robot_id = robot_id_;
-        // // local_graph_->addVertex(new_vertex);
-        // vertices_mat[cur_ind] = new_vertex;
-
-        if (MapManager::VoxelStatus::kFree ==
-            map_manager_->getBoxStatus(voxel+robot_params_.center_offset, robot_size, true)) {
-          ExpandGraphReport rep;
-          StateVec new_state(x_val, y_val, z_val, heading);
-
-          Vertex expand_vertex(vertex_id++, new_state);
-          expand_vertex.is_hanging = hanging;
-          expandGraph(local_graph_, expand_vertex, rep);
-          free_vertex_count++;
-
-          if (rep.status == ExpandGraphStatus::kSuccess) {
-            num_vertices += rep.num_vertices_added;
-            num_edges += rep.num_edges_added;
-          }
-        }
-      }
-    }
-  }
-  ROS_WARN_COND(global_verbosity >= Verbosity::DEBUG, "Number of free nodes [%d] vertices %d edge %d.", 
-                              free_vertex_count, num_vertices, num_edges);
-  return GraphStatus::OK;
-}
-
 Rrg::GraphStatus Rrg::buildGraph() {
   int loop_count = 0;
   int num_vertices = 1;
@@ -1416,46 +1266,35 @@ Rrg::GraphStatus Rrg::buildGraph() {
   auto t1 = std::chrono::high_resolution_clock::now();
   auto t2 = t1;
 
-  if(planning_params_.build_grid_local_graph){
-    // Eigen::Vector3d grid_orig_min_val_(-5.0,-5.0,-2.0);
-    // Eigen::Vector3d grid_orig_max_val_(15.0,15.0,2.0);
-    // Eigen::Vector3d grid_orig_res_val_(0.5,0.5,0.2);
+  while ((loop_count++ < planning_params_.num_loops_max) &&
+        (num_vertices < planning_num_vertices_max_) &&
+        (num_edges < planning_num_edges_max_)) {
+    Vertex new_vertex(-1, StateVec::Zero());
 
-    buildGridGraphExpand(current_state_, robot_box_size_, grid_graph_min_val_, 
-                    grid_graph_max_val_,grid_graph_res_val_, current_state_[3]
-                    );
-    
-  } else{
-
-    while ((loop_count++ < planning_params_.num_loops_max) &&
-          (num_vertices < planning_num_vertices_max_) &&
-          (num_edges < planning_num_edges_max_)) {
-      Vertex new_vertex(-1, StateVec::Zero());
-
-      if (planning_params_.type == PlanningModeType::kAdaptiveExploration) {
-        if (!sampleVertex(random_sampler_adaptive_, root_vertex_->state,
-                          new_vertex)) {
-          continue;
-        }
-      } else {
-        if (!sampleVertex(new_vertex)) {
-          continue;
-        }
+    if (planning_params_.type == PlanningModeType::kAdaptiveExploration) {
+      if (!sampleVertex(random_sampler_adaptive_, root_vertex_->state,
+                        new_vertex)) {
+        continue;
       }
-
-      ExpandGraphReport rep;
-      expandGraph(local_graph_, new_vertex, rep);
-      if (rep.status == ExpandGraphStatus::kSuccess) {
-        num_vertices += rep.num_vertices_added;
-        num_edges += rep.num_edges_added;
-      }
-
-      if ((loop_count >= planning_params_.num_loops_cutoff) &&
-          (local_graph_->getNumVertices() <= 1)) {
-        break;
+    } else {
+      if (!sampleVertex(new_vertex)) {
+        continue;
       }
     }
+
+    ExpandGraphReport rep;
+    expandGraph(local_graph_, new_vertex, rep);
+    if (rep.status == ExpandGraphStatus::kSuccess) {
+      num_vertices += rep.num_vertices_added;
+      num_edges += rep.num_edges_added;
+    }
+
+    if ((loop_count >= planning_params_.num_loops_cutoff) &&
+        (local_graph_->getNumVertices() <= 1)) {
+      break;
+    }
   }
+  // }
 
   stat_->build_graph_time = GET_ELAPSED_TIME(ttime);
   t2 = std::chrono::high_resolution_clock::now();
@@ -2318,6 +2157,18 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
     } else{
     }
   }
+  
+  // Melo
+  // for (const auto& vertex : global_graph_->vertices_map_) {  
+  //   if(!vertex.second){
+  //     ROS_ERROR("Vertex %d is NULL!", vertex.first);
+  //   }  
+  //   if (vertex.second->type == VertexType::kUnvisited) {
+  //     unvisited_vertices.push_back(vertex.second);
+  //   } else{
+  //   }
+  // }
+  // Melo
 
   if (unvisited_vertices.empty()) return;
 
@@ -2415,7 +2266,7 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
       expandGraph(global_graph_, new_vertex, rep);
       if (rep.status == ExpandGraphStatus::kSuccess) {
         computeVolumetricGainRayModel(rep.vertex_added->state,
-                                      rep.vertex_added->vol_gain, false);
+                                       rep.vertex_added->vol_gain, false);
         if (rep.vertex_added->vol_gain.is_frontier)
           rep.vertex_added->type = VertexType::kFrontier;
         num_vertices += rep.num_vertices_added;
@@ -2849,15 +2700,6 @@ bool Rrg::loadParams(bool shared_params) {
   }
   adaptive_orig_min_val_ = local_adaptive_params_.min_val;
   adaptive_orig_max_val_ = local_adaptive_params_.max_val;
-
-  if (!grid_graph_params_.loadParams(
-          ns + "/BoundedSpaceParams/GridGraphLocal")) {
-    ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "No setting for GridGraphLocal exploration mode.");
-  }
-
-  grid_graph_min_val_ = grid_graph_params_.min_val;
-  grid_graph_max_val_ = grid_graph_params_.max_val;
-  grid_graph_res_val_ = grid_graph_params_.min_extension;
 
   // The sampler doesn't load params automatically.
   // Remember to initialize the sampler in initializeParams() function.
@@ -3501,9 +3343,6 @@ void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
 
 
 
-
-
-
 // Melo
 void Rrg::computeVolumetricGainRayModelNoBoundMelo(StateVec& state,
                                                VolumetricGain& vgain) {
@@ -3940,8 +3779,6 @@ std::vector<geometry_msgs::Pose> Rrg::getGlobalPath(
 }
 
 std::vector<geometry_msgs::Pose> Rrg::getHomingPath(std::string tgt_frame) {
-  homing_ongoing_ = true; // Melo
-
   std::vector<geometry_msgs::Pose> ret_path;
   ret_path = searchHomingPath(tgt_frame, current_state_);
   if (ret_path.size() < 1) return ret_path;
@@ -4175,6 +4012,7 @@ std::vector<geometry_msgs::Pose> Rrg::getBestPath(std::string tgt_frame,
       const double kTimeDelta = 20;
       if (time_to_home > time_remaining - kTimeDelta) {
         ROS_WARN_COND(global_verbosity >= Verbosity::PLANNER_STATUS, "REACHED TIME LIMIT: HOMING ENGAGED.");
+        homing_ongoing_ = true; // Melo
         if (planning_params_.path_safety_enhance_enable) {
           std::vector<geometry_msgs::Pose> mod_path;
           if (improveFreePath(homing_path, mod_path, true)) {

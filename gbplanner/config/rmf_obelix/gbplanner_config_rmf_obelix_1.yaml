@@ -57,11 +57,6 @@ BoundedSpaceParams:
     type:           kCuboid
     min_val:        [-10.0, -10.0, -0.75]
     max_val:        [10.0, 10.0, 0.75]
-  GridGraphLocal:
-    type: kCuboid
-    min_val:        [-10.0, -10.0, -1.0]
-    max_val:        [10.0, 10.0, 0.2]
-    min_extension:  [0.5, 0.5, 0.2] # Resolution
 NoGainZones:
   g1:  # Back
     type:           kCuboid
@@ -148,7 +143,7 @@ PlanningParams:
   exp_gain_voxel_size: 0.8 # used if use_ray_model_for_volumetric_gain is false
   # Gains:
   path_length_penalty: 0.04
-  path_direction_penalty: 0.25 # (0.25 for pittsburgh mine) Reduced from 0.1 to reduce oscillation (lower = less penalty for non-forward paths)
+  path_direction_penalty: 0.3 # (0.25 for pittsburgh mine) Reduced from 0.1 to reduce oscillation (lower = less penalty for non-forward paths)
   occupied_voxel_gain: 0.0
   free_voxel_gain:  0.0 # prefer directions towards more free voxels in case of the dead-end
   unknown_voxel_gain: 60.0
@@ -163,12 +158,9 @@ PlanningParams:
   cluster_vertices_for_gain: true
   clustering_radius: 0.5
 
-  build_grid_local_graph: true
-
-
   path_interpolation_distance: 0.5
   
-  time_budget_limit: 3600 #480 # seconds
+  time_budget_limit: 1800 #480 # seconds
   auto_global_planner_enable: true  # Enable global planner to escape local minima (triggers after 4 consecutive iterations with no frontiers)
   auto_homing_enable: true
   go_home_if_fully_explored: true

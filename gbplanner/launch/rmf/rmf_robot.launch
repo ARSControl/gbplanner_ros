@@ -18,7 +18,7 @@
   <!-- <arg name="num_robots"/> -->
 
   <!-- Config files - use base_name for config directory -->
-  <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config_$(arg robot_name)_mggplanner.yaml"/>
+  <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg base_name)/gbplanner_config_$(arg robot_name).yaml"/>
   <arg name="pci_file" default="$(find gbplanner)/config/$(arg base_name)/planner_control_interface_sim_config.yaml"/>
   <arg name="voxblox_config_file" default="$(find gbplanner)/config/$(arg base_name)/voxblox_sim_config.yaml"/>
   <arg name="map_config_file" default="$(arg voxblox_config_file)"/>
@@ -124,10 +124,10 @@
 
   <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
-      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_metrics" />
-      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_trajectory" />
-      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
-      <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" />
+      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_metrics" />
+      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_trajectory" />
+      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_global_graph_size" />
+      <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_multiple_merge_global_graph_size" />
 
       <param name="overallMapVoxelSize" type="double" value="0.5" />
       <param name="exploredAreaVoxelSize" type="double" value="0.3" />

@@ -543,9 +543,9 @@ int main(int argc, char** argv)
   // metricFile += "_" + timeString + ".txt";
   // trajFile += "_" + timeString + ".txt";
   // globalGraphSizeFile += "_" + timeString + ".txt";
-  metricFile += "_run_3.txt";
-  trajFile += "_run_3.txt";
-  globalGraphSizeFile += "_run_3.txt";
+  metricFile += "_run_9.txt";
+  trajFile += "_run_9.txt";
+  globalGraphSizeFile += "_run_9.txt";
   metricFilePtr = fopen(metricFile.c_str(), "w");
   trajFilePtr = fopen(trajFile.c_str(), "w");
   globalGraphSizeFilePtr = fopen(globalGraphSizeFile.c_str(), "w");

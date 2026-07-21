@@ -1090,12 +1090,6 @@ bool PlanningParams::loadParams(std::string ns) {
     auto_global_planner_enable = true;
     ROSPARAM_WARN(param_name, auto_global_planner_enable);
   }
-
-  param_name = ns + "/build_grid_local_graph";
-  if (!ros::param::get(param_name, build_grid_local_graph)) {
-    build_grid_local_graph = false;
-    ROSPARAM_WARN(param_name, "false");
-  }
   
   param_name = ns + "/relaxed_corridor_multiplier";
   if (!ros::param::get(param_name, relaxed_corridor_multiplier)) {

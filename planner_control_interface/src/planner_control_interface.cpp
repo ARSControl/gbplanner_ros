@@ -755,7 +755,7 @@ void PlannerControlInterface::runGlobalPlanner(bool exe_path = false) {
       if (restore_auto_after_global_) {
         trigger_mode_ = PlannerTriggerModeType::kAuto;
         restore_auto_after_global_ = false;
-        ROS_INFO("Global repositioning path dispatched. Auto local planning will resume when PCI is ready.");
+        ROS_INFO("Auto local planning will resume when reached the end of the global path.");
       }
       // ARS Control
     } else {

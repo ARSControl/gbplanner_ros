@@ -124,10 +124,10 @@
 
   <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
-      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_metrics" />
-      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_trajectory" />
-      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_gbplanner_global_graph_size" />
-      <!-- <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_single_gbplanner_global_graph_size" /> -->
+      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_our_metrics" />
+      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_our_trajectory" />
+      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_our_global_graph_size" />
+      <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_pointcloud_map.ply" />
 
       <param name="overallMapVoxelSize" type="double" value="0.5" />
       <param name="exploredAreaVoxelSize" type="double" value="0.3" />

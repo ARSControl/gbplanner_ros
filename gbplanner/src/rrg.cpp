@@ -146,14 +146,14 @@ void Rrg::initializeAttributes() {
   // Melo
   homing_ongoing_ = false;
   require_global_replanning_ = false;
-  save_graph_timer_ = nh_.createTimer(ros::Duration(1800.0), &Rrg::saveGraphCallback, this);
+  // save_graph_timer_ = nh_.createTimer(ros::Duration(1115.0), &Rrg::saveGraphCallback, this);
   // Melo
 }
 
 // Melo
 void Rrg::saveGraphCallback(const ros::TimerEvent& event){
   ROS_INFO("[%i] Saving global graph...", robot_id);
-  std::string path = "/root/gbplanner2_ws/graph_" + std::to_string(robot_id) + ".bin";
+  std::string path = "/root/gbplanner2_ws/graph_" + std::to_string(robot_id) + "_images.bin";
   saveGraph(path);
   ROS_INFO("[%i] Saved global graph!", robot_id);
 }

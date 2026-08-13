@@ -159,7 +159,7 @@ PlanningParams:
   clustering_radius: 0.5
   path_interpolation_distance: 0.5
   
-  time_budget_limit: 1800 #480 # seconds
+  time_budget_limit: 900 #480 # seconds
   auto_global_planner_enable: true  # Enable global planner to escape local minima (triggers after 4 consecutive iterations with no frontiers)
   auto_homing_enable: true
   go_home_if_fully_explored: true

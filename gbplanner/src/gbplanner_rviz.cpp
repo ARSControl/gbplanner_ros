@@ -516,12 +516,40 @@ void Visualization::visualizeProjectedGraph(
 
 void Visualization::visualizeGlobalGraph(
     const std::shared_ptr<GraphManager> graph_manager) {
+  
+  // Rimuovere
+  std::string ns = ros::this_node::getNamespace();
+  std_msgs::ColorRGBA graph_color;
+  graph_color.a = 1.0;
+
+  if (ns.find("rmf_obelix_1") != std::string::npos) {
+      graph_color.r = 1.0;
+      graph_color.g = 0.0;
+      graph_color.b = 0.0;   // Rosso
+  }
+  else if (ns.find("rmf_obelix_2") != std::string::npos) {
+      graph_color.r = 0.0;
+      graph_color.g = 1.0;
+      graph_color.b = 0.0;   // Verde
+  }
+  else if (ns.find("rmf_obelix_3") != std::string::npos) {
+      graph_color.r = 0.0;
+      graph_color.g = 0.0;
+      graph_color.b = 1.0;   // Blu
+  }
+  else {
+      graph_color.r = 1.0;
+      graph_color.g = 1.0;
+      graph_color.b = 1.0;   // Default
+  }
+  // Rimuovere
+
   std::shared_ptr<Graph> g = graph_manager->graph_;
   std::unordered_map<int, Vertex*>& v_map = graph_manager->vertices_map_;
 
   if (graph_manager->getNumVertices() == 0) return;
   if (planning_global_graph_pub_.getNumSubscribers() < 1) return;
-
+  
   visualization_msgs::MarkerArray marker_array;
 
   // Plot all edges using line (fast)
@@ -534,10 +562,12 @@ void Visualization::visualizeGlobalGraph(
   edge_marker.action = visualization_msgs::Marker::ADD;
   edge_marker.type = visualization_msgs::Marker::LINE_LIST;
   edge_marker.scale.x = 0.1;
-  edge_marker.color.r = 200.0 / 255.0;
-  edge_marker.color.g = 100.0 / 255.0;
-  edge_marker.color.b = 0.0;
-  edge_marker.color.a = 1.0;
+  // edge_marker.color.r = 200.0 / 255.0;
+  // edge_marker.color.g = 100.0 / 255.0;
+  // edge_marker.color.b = 0.0;
+  // edge_marker.color.a = 1.0;
+  edge_marker.color = graph_color; // Rimuovere
+
   edge_marker.lifetime = ros::Duration(graph_lifetime);
   edge_marker.frame_locked = false;
   
@@ -614,10 +644,12 @@ void Visualization::visualizeGlobalGraph(
   vertex_marker.scale.x = 0.3;
   vertex_marker.scale.y = 0.3;
   vertex_marker.scale.z = 0.3;
-  vertex_marker.color.r = 53.0 / 255.0;
-  vertex_marker.color.g = 49.0 / 255.0;
-  vertex_marker.color.b = 119.0 / 255.0;
-  vertex_marker.color.a = 1.0;
+  // vertex_marker.color.r = 53.0 / 255.0;
+  // vertex_marker.color.g = 49.0 / 255.0;
+  // vertex_marker.color.b = 119.0 / 255.0;
+  // vertex_marker.color.a = 1.0;
+  vertex_marker.color = graph_color; // Rimuovere
+  
   vertex_marker.lifetime = ros::Duration(graph_lifetime);
   vertex_marker.frame_locked = false;
 

@@ -523,10 +523,10 @@ int main(int argc, char** argv)
   exploredAreaDwzFilter.setLeafSize(exploredAreaVoxelSize, exploredAreaVoxelSize, exploredAreaVoxelSize);
   exploredVolumeDwzFilter.setLeafSize(exploredVolumeVoxelSize, exploredVolumeVoxelSize, exploredVolumeVoxelSize);
 
-  // pcl::PLYReader ply_reader;
-  // if (ply_reader.read(mapFile, *overallMapCloud) == -1) {
-  //   printf("\nCouldn't read pointcloud.ply file.\n\n");
-  // }
+  pcl::PLYReader ply_reader;
+  if (ply_reader.read(mapFile, *overallMapCloud) == -1) {
+    printf("\nCouldn't read pointcloud.ply file.\n\n");
+  }
 
   overallMapCloudDwz->clear();
   overallMapDwzFilter.setInputCloud(overallMapCloud);
@@ -543,9 +543,9 @@ int main(int argc, char** argv)
   // metricFile += "_" + timeString + ".txt";
   // trajFile += "_" + timeString + ".txt";
   // globalGraphSizeFile += "_" + timeString + ".txt";
-  metricFile += "_run_5.txt";
-  trajFile += "_run_5.txt";
-  globalGraphSizeFile += "_run_5.txt";
+  metricFile += "_images.txt";
+  trajFile += "_images.txt";
+  globalGraphSizeFile += "_images.txt";
   metricFilePtr = fopen(metricFile.c_str(), "w");
   trajFilePtr = fopen(trajFile.c_str(), "w");
   globalGraphSizeFilePtr = fopen(globalGraphSizeFile.c_str(), "w");
@@ -585,8 +585,8 @@ int main(int argc, char** argv)
     rate.sleep();
   }
 
-  // pcl::PLYWriter ply_writer;
-  // ply_writer.write(mapFile, *exploredAreaCloud, true, false);
+  pcl::PLYWriter ply_writer;
+  ply_writer.write(mapFile, *exploredAreaCloud, true, false);
 
   fclose(metricFilePtr);
   fclose(trajFilePtr);

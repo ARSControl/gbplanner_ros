@@ -8,7 +8,7 @@
   <arg name="robots_config_file" default="$(find gbplanner)/config/robots.yaml"/>
   <arg name="gazebo_gui_en" default="false"/>
   <arg name="use_sim_time" default="true"/>
-  <arg name="rviz_en" default="false" />
+  <arg name="rviz_en" default="true" />
   <arg name="launch_prefix" default=""/> <!-- gdb -ex run //args -->
   <!-- <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/outdoor_city.world"/> -->
   <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/pittsburgh_mine.world"/>

@@ -996,6 +996,7 @@ bool PlannerControlInterface::loadParams() {
   param_name = ns + "/world_frame_id";
   if (!ros::param::get(param_name, world_frame_id_)) {
     world_frame_id_ = "world";
+    ROS_ERROR("[WORLD FRAME]: %s", world_frame_id_.c_str());
     ROS_WARN_COND(global_verbosity >= Verbosity::WARN,
                   "No world_frame_id setting, set it to: %s.",
                   world_frame_id_.c_str());

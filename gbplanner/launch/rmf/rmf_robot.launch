@@ -8,6 +8,7 @@
   <!-- Required arguments -->
   <arg name="robot_name" />
   <arg name="base_name" />
+  <arg name="robot_id" default="0"/>
   <arg name="robot_x" default="0.0"/>
   <arg name="robot_y" default="0.0"/>
   <arg name="robot_z" default="0.5"/>
@@ -38,10 +39,15 @@
   <node pkg="tf" type="static_transform_publisher" name="$(arg robot_name)_tf_4" args="0.015 -0.055 0.0065 -1.57 0.1 -1.57 $(arg robot_name)/fcu $(arg robot_name)/vi_sensor/camera_right_link 1" />
   <node pkg="tf" type="static_transform_publisher" name="$(arg robot_name)_tf_5" args="0 0 0.05 0.0 0.0 0.0 $(arg robot_name)/base_link $(arg robot_name)/velodyne 10" />
 
+  <!-- TODO:Melo Publishes the tf from world to local_frame -->
+  <node pkg="tf" type="static_transform_publisher" name="$(arg robot_name)_world_to_local_tf" args="$(arg robot_x) $(arg robot_y) $(arg robot_z) 0.0 0.0 0.0 world $(arg robot_name)/local_frame 10" />
+
   <!-- Robot-specific group namespace -->
   <group ns="$(arg robot_name)">
     <node name="img_throttler" type="throttle" pkg="topic_tools" args="messages vi_sensor/camera_depth/depth/points 5 vi_sensor/camera_depth/depth/points_throttled" />
-    <node name="odo_throttler" type="throttle" pkg="topic_tools" args="messages ground_truth/odometry 100 ground_truth/odometry_throttled" />
+    <!-- <node name="odo_throttler" type="throttle" pkg="topic_tools" args="messages ground_truth/odometry 100 ground_truth/odometry_throttled" /> -->
+    <node name="odo_throttler" type="throttle" pkg="topic_tools" args="messages ground_truth/odometry_local 100 ground_truth/odometry_throttled" />
+
 
     <!-- Spawn model directly with unique name to avoid conflicts -->
     <!-- This processes the xacro with base_name (for file resolution) but spawns with robot_name (unique) -->
@@ -64,7 +70,8 @@
     <node name="lee_position_controller_node" pkg="rotors_control" type="lee_position_controller_node" output="screen" respawn="true">
       <rosparam command="load" file="$(find rotors_gazebo)/resource/lee_controller_$(arg base_name).yaml" />
       <rosparam command="load" file="$(find rotors_gazebo)/resource/$(arg base_name).yaml" />
-      <remap from="odometry" to="odometry_sensor1/odometry" />
+      <!-- <remap from="odometry" to="odometry_sensor1/odometry" /> -->
+      <remap from="odometry" to="odometry_sensor1/odometry_local" />
     </node>
   </group>
 
@@ -74,8 +81,10 @@
        it gets double-prefixed (e.g. /rmf_obelix_1/rmf_obelix_1/ground_truth/odometry_throttled).
        Make it absolute to avoid double namespacing. -->
   <arg name="odometry_topic" default="/$(arg robot_name)/ground_truth/odometry_throttled"/>
-  <node name="$(arg robot_name)_pose_throttler" type="throttle" pkg="topic_tools" args="messages $(arg robot_name)/ground_truth/pose_with_covariance 10 $(arg robot_name)/msf_core/pose" />
-  
+  <!-- <node name="$(arg robot_name)_pose_throttler" type="throttle" pkg="topic_tools" args="messages $(arg robot_name)/ground_truth/pose_with_covariance 10 $(arg robot_name)/msf_core/pose" /> -->
+  <node name="$(arg robot_name)_pose_throttler" type="throttle" pkg="topic_tools" args="messages $(arg robot_name)/ground_truth/pose_with_covariance_local 10 $(arg robot_name)/msf_core/pose" />
+
+
   <!-- Graph based planning -->
   <!-- Note: Node is inside namespace group, so services are advertised at $(arg robot_name)/gbplanner/* -->
   <!-- This matches the single-robot setup where gbplanner_node is in the robot namespace -->
@@ -90,6 +99,8 @@
       <!-- Services are automatically namespaced to $(arg robot_name)/gbplanner/* -->
       <rosparam command="load" file="$(arg gbplanner_config_file)" />
       <rosparam command="load" file="$(arg map_config_file)" />
+
+      <param name="world_frame" value="$(arg robot_name)/local_frame"/>
     </node>
   </group>
 
@@ -104,20 +115,48 @@
       <remap from="odometry" to="$(arg odometry_topic)"/>
       <!-- Services are automatically namespaced to $(arg robot_name)/pci_* -->
       <rosparam command="load" file="$(arg pci_file)" />
+
+      <param name="world_frame_id" value="$(arg robot_name)/local_frame"/>
     </node>
   </group>
 
 
+
+
+  <group ns="$(arg robot_name)">
+    <node pkg="gbplanner" type="tf_transform_world_to_local.py" name="odometry_transformer" output="screen" respawn="true">
+      <param name="config_file" value="$(find gbplanner)/config/$(arg base_name)/world_to_local_convertion_topics.yaml"/>
+      <param name="target_frame" value="$(arg robot_name)/local_frame"/>
+    </node>
+  </group>
+
+
+  <group ns="$(arg robot_name)">
+    <include file="$(find kimera_vio_ros)/launch/kimera_vio_single_drone.launch">
+      <arg name="robot_name" value="$(arg robot_name)"/>
+      <arg name="robot_id" value="$(arg robot_id)"/>
+    </include>
+  </group>
+
+  <!-- <group ns="$(arg robot_name)">
+    <node pkg="gbplanner" type="tf_transform_world_to_local.py" name="odometry_transformer" output="screen" respawn="true">
+      <param name="input_topic" value="ground_truth/odometry_throttled" />
+      <param name="output_topic" value="ground_truth/odometry_local" /> -->
+      <!-- <param name="source_frame" value="world" /> -->
+      <!-- <param name="target_frame" value="local_frame" />
+    </node>
+  </group> -->
+
   <!-- ARS control -->
   <!-- Merging node -->
-  <group ns="$(arg robot_name)">
+  <!-- <group ns="$(arg robot_name)">
     <node pkg="graph_merging" type="merging_node" name="merging_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
     <rosparam command="load" file="$(arg gbplanner_config_file)" />
     </node>
   </group>
-  
+   -->
   <!-- Gaussian Mixture Model node -->
-  <group ns="$(arg robot_name)">
+  <!-- <group ns="$(arg robot_name)">
     <node pkg="gmm" type="gmm_node.py" name="gmm_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
     </node>
   </group>
@@ -135,18 +174,18 @@
       <param name="transInterval" type="double" value="0.2" />
       <param name="yawInterval" type="double" value="10.0" />
       <param name="overallMapDisplayInterval" type="int" value="2" />
-      <param name="exploredAreaDisplayInterval" type="int" value="1" />
-      <!-- <remap from="registered_scan" to="mggplanner_node/surface_pointcloud"/> -->
-      <remap from="state_estimation" to="odometry_sensor1/odometry"/>
+      <param name="exploredAreaDisplayInterval" type="int" value="1" /> -->
+                  <!-- <remap from="registered_scan" to="mggplanner_node/surface_pointcloud"/> -->
+      <!-- <remap from="state_estimation" to="odometry_sensor1/odometry"/>
       <remap from="gbp_time_log" to="gbp_time_log"/>
-    </node>
+    </node> -->
 
-    <node pkg="topic_tools" type="relay" name="total_r2to$(arg robot_name)" args="/rmf_obelix_2/gbplanner_node/surface_pointcloud registered_scan" />
+    <!-- <node pkg="topic_tools" type="relay" name="total_r2to$(arg robot_name)" args="/rmf_obelix_2/gbplanner_node/surface_pointcloud registered_scan" />
     <node pkg="topic_tools" type="relay" name="total_r1to$(arg robot_name)" args="/rmf_obelix_1/gbplanner_node/surface_pointcloud registered_scan" />
-    <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" />
+    <node pkg="topic_tools" type="relay" name="total_r3to$(arg robot_name)" args="/rmf_obelix_3/gbplanner_node/surface_pointcloud registered_scan" /> -->
 
     <!-- <node pkg="visualization_tools" type="realTimePlot.py" name="realTimePlot" output="screen" respawn="true"/> -->
-  </group>
+  <!-- </group> -->
 
 </launch>
 

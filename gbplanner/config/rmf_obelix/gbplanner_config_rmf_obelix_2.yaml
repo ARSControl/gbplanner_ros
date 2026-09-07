@@ -121,7 +121,7 @@ RandomSamplerParams:
 PlanningParams:
   type:             kBasicExploration #kAdaptiveExploration, kBasicExploration
   rr_mode:          kGraph
-  global_frame_id:  world  # Global frame for visualization and planning (must be "world" for multi-robot)
+  global_frame_id:  rmf_obelix_2/local_frame  # Global frame for visualization and planning (must be "world" for multi-robot)
   exp_sensor_list:  ["OS064"]
   # no_gain_zones_list: ["g1"]
   v_max:            1.0 # max velocity m/s

@@ -1230,6 +1230,7 @@ Rrg::GraphStatus Rrg::buildGraph() {
 
   local_exploration_ongoing_ = true;
 
+  // If global planning is ongoing
   if (global_exploration_ongoing_) {
     Vertex* global_vertex = global_graph_->getVertex(current_global_vertex_id_);
     // Global repositioning stopped in between
@@ -1285,7 +1286,8 @@ Rrg::GraphStatus Rrg::buildGraph() {
          (num_vertices < planning_num_vertices_max_) &&
          (num_edges < planning_num_edges_max_)) {
     Vertex new_vertex(-1, StateVec::Zero());
-
+    
+  
     if (planning_params_.type == PlanningModeType::kAdaptiveExploration) {
       if (!sampleVertex(random_sampler_adaptive_, root_vertex_->state,
                         new_vertex)) {
@@ -1299,6 +1301,7 @@ Rrg::GraphStatus Rrg::buildGraph() {
 
     ExpandGraphReport rep;
     expandGraph(local_graph_, new_vertex, rep);
+
     if (rep.status == ExpandGraphStatus::kSuccess) {
       num_vertices += rep.num_vertices_added;
       num_edges += rep.num_edges_added;

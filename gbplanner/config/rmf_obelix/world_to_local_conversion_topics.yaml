@@ -1,0 +1,21 @@
+# Configuration for transforming odometry and pose topics from world to local frame
+# 
+# This configuration file specifies which topics to transform using the tf transform
+# from world frame to local frame.
+
+# Source and target frames for transformation
+source_frame: "world"
+target_frame: "local_frame"  # Will be substituted by robot namespace in launch file
+
+# Odometry topics to transform (nav_msgs/Odometry)
+# You can have 1 or more topics - each will be independently transformed
+odometry_topics:
+  - input: "odometry_sensor1/odometry"
+    output: "odometry_sensor1/odometry_local"
+  - input: "ground_truth/odometry"
+    output: "ground_truth/odometry_local"
+
+# Pose topics to transform (geometry_msgs/PoseWithCovarianceStamped)
+pose_topics:
+  - input: "ground_truth/pose_with_covariance"
+    output: "ground_truth/pose_with_covariance_local"

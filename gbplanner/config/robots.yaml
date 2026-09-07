@@ -12,22 +12,23 @@
 robots:
   - name: rmf_obelix_1
     base_name: rmf_obelix
+    id: 1
     x: 0.0
     y: 0.0
     z: 0.5
   
-  - name: rmf_obelix_2
-    base_name: rmf_obelix
-    x: 10.0
-    y: 10.0
-    z: 0.5
+  # - name: rmf_obelix_2
+  #   base_name: rmf_obelix
+  #   x: 10.0
+  #   y: 10.0
+  #   z: 0.5
   
-  # Uncomment to add more robots:
-  - name: rmf_obelix_3
-    base_name: rmf_obelix
-    x: 5.0
-    y: 5.0
-    z: 0.5
+  # # Uncomment to add more robots:
+  # - name: rmf_obelix_3
+  #   base_name: rmf_obelix
+  #   x: 5.0
+  #   y: 5.0
+  #   z: 0.5
 
 
 

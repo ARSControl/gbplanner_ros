@@ -82,6 +82,8 @@ class Graph {
   std::vector<VertexDescriptor> vertices_;
   int num_vertices_;
 
+  // std::vector<int> index_to_id_; // Fix error merge
+
   bool findDijkstraShortestPaths(VertexDescriptor& source,
                                  std::vector<VertexDescriptor>& shortest_paths,
                                  std::vector<double>& shortest_distances);

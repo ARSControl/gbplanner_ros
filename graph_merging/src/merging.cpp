@@ -4,6 +4,14 @@
 #include <fstream>
 #include <limits>
 
+
+
+#include "graph_merging/connected_components.h"
+
+
+
+
+
 merge::GraphMerger::GraphMerger(const ros::NodeHandle& nh,
                     const ros::NodeHandle& nh_private)
     : nh_(nh), nh_private_(nh_private) {
@@ -15,6 +23,8 @@ void merge::GraphMerger::initializeAttributes(){
     global_graph_manager_.reset(new GraphManager());
     new_graph_.reset(new GraphManager());
     kd_tree_centroids_ = NULL;
+
+    nh_private_.param<int>("gmm_components", gmm_components_, 6);
 
     // Publishers
     merged_graph_pub_ = nh_.advertise<planner_msgs::Graph>("merging_node/merged_graph", 10);
@@ -49,6 +59,11 @@ void merge::GraphMerger::reset(){
     global_graph_manager_->group_vertices_.clear();
     final_groups_.clear();
     vertex_to_group_.clear();
+
+    // Fix error merge
+    vertex_to_candidate_groups_.clear();
+    // Fix error merge
+    
     this->cleanCentroids();
 
     centroid_id_count_ = -1;
@@ -311,7 +326,9 @@ void merge::GraphMerger::selfGraphMergeCallback(const planner_msgs::Graph& msg){
     global_graph_manager_->convertMsgToGraph(msg);
 
     // Perform the merging process
-    this->mergingProcess();
+    // this->mergingProcess();
+    this->mergingProcessReview("self_merge");
+
 }
 
 void merge::GraphMerger::filteredSubgraphCallback(const planner_msgs::Merge& msg){
@@ -330,7 +347,15 @@ void merge::GraphMerger::filteredSubgraphCallback(const planner_msgs::Merge& msg
     for (const auto& v : msg.vertices_to_keep){
         vertex_ids.insert(v.id);
 
+        // Vertex* vertex_ptr = new_graph_->getVertex(v.id);
+
+        // Fix error merge
         Vertex* vertex_ptr = new_graph_->getVertex(v.id);
+        if (!vertex_ptr) {
+            ROS_WARN("vertices_to_keep id %d not found in neighbour graph, skipped", v.id);
+            continue;
+        }
+        // Fix error merge
         StateVec state = vertex_ptr->state;
 
         // Melo
@@ -381,11 +406,61 @@ void merge::GraphMerger::filteredSubgraphCallback(const planner_msgs::Merge& msg
     }
 
     // Perform the merging process
-    this->mergingProcess();
+    // this->mergingProcess();
+    this->mergingProcessReview("two_robot_merge");
 }
 
-void merge::GraphMerger::mergingProcess(){
+// void merge::GraphMerger::mergingProcess(){
+//     ROS_INFO(("Starting graph merging process. Initial number of vertices: %d"), global_graph_manager_->getNumVertices());
+
+//     // Iteration over all the graph vertices for building initial groups with possible overlap
+//     for(auto& [vertex_id, vertex_properties] : global_graph_manager_->vertices_map_){
+//         // Find all the nearest vertices within the specified range
+//         StateVec state;
+//         state.x() = vertex_properties->state.x();
+//         state.y() = vertex_properties->state.y();
+//         state.z() = vertex_properties->state.z();
+//         std::vector<Vertex*> vertices;
+//         // This function has been modified to avoid duplicate vertices in the same group
+//         global_graph_manager_->getNearestVertices_modified(&state, merge_threshold, &vertices);
+
+//         int group_id = generateGroupID();
+//         if(vertices.size() > 1){
+//             // Assign the vertices to a group, possible overlaps may exist
+//             global_graph_manager_->group_vertices_[group_id] = vertices;
+//         }
+//         else {
+//             // If the group contains only the vertex itself, add it to the final groups list as a single group
+//             Vertex* vertex = global_graph_manager_->getVertex(vertex_id);
+//             final_groups_[group_id] = {vertex};
+
+//             // Keep track to which groups vertices are assigned definitely
+//             vertex_to_group_[vertex_id] = group_id;
+//         }
+
+//         // For debug purposes
+//         for (auto& v : vertices){
+//             vertex_to_candidate_groups_[v->id].push_back(group_id);
+//         }
+//     }
+
+//     // Compute centroids and find the closes centroid for each vertex of the graph
+//     this->computeCentroids(global_graph_manager_->group_vertices_, group_centroids_list_);
+//     this->findClosestGroup(global_graph_manager_->group_vertices_, group_centroids_list_);
+
+//     // Re-compute centroids
+//     this->computeCentroids(final_groups_, group_centroids_list_);
+
+//     // Core merging process
+//     this->mergeWithRepresentativeNodes(final_groups_);
+// }
+
+void merge::GraphMerger::mergingProcessReview(const std::string& merge_type){
     ROS_INFO(("Starting graph merging process. Initial number of vertices: %d"), global_graph_manager_->getNumVertices());
+
+    // Connected components BEFORE the merge:
+    // global_graph_manager_ contains the own graph (+ the received vertices in the two-robot case)
+    const merge::ComponentsInfo components_before = merge::countConnectedComponents(global_graph_manager_);
 
     // Iteration over all the graph vertices for building initial groups with possible overlap
     for(auto& [vertex_id, vertex_properties] : global_graph_manager_->vertices_map_){
@@ -425,8 +500,16 @@ void merge::GraphMerger::mergingProcess(){
     // Re-compute centroids
     this->computeCentroids(final_groups_, group_centroids_list_);
 
-    // Core merging process
+    // Core merging process (builds and publishes new_graph_)
     this->mergeWithRepresentativeNodes(final_groups_);
+
+    // Connected components AFTER the merge: new_graph_ is the merged graph
+    const merge::ComponentsInfo components_after = merge::countConnectedComponents(new_graph_);
+
+    merge::logMergeComponents("/root/gbplanner2_ws/src/exploration/gbplanner_ros/graph_merging/log_connected_components/connectivitypitt_merge_components_robot_" + std::to_string(robot_id_) + "k" + std::to_string(gmm_components_) + ".csv",
+                              merge_type, robot_id_, components_before, components_after);
+    ROS_INFO("Connected components: %d -> %d (%s)",
+             components_before.num_components, components_after.num_components, merge_type.c_str());
 }
 
 void merge::GraphMerger::mergeWithRepresentativeNodes(std::unordered_map<int, std::vector<Vertex*>>& final_groups_){
@@ -526,29 +609,62 @@ void merge::GraphMerger::mergeWithRepresentativeNodes(std::unordered_map<int, st
 
     // Iterate over all the old vertices and get the old neighbours they are connected with 
     // to maintain connectivity in the new graph
+    // for (const auto& [old_id, old_vertex] : global_graph_manager_->vertices_map_) {
+    //     std::vector<int> neighbours;
+    //     global_graph_manager_->getAdjacentVertices(old_vertex, neighbours);
+    //     for (int neigh_id : neighbours) {
+    //         Vertex* new_from = old_to_new_vertex[old_id];
+    //         Vertex* new_to   = old_to_new_vertex[neigh_id];
+
+    //         // Avoid self-loops (same merged group)
+    //         if (new_from->id == new_to->id){
+    //             continue;
+    //         }
+
+    //         StateVec new_to_state = new_to->state;
+    //         Eigen::Vector3d origin(new_from->state[0], new_from->state[1],
+    //                     new_from->state[2]);
+    //         Eigen::Vector3d direction(new_to_state[0] - origin[0], new_to_state[1] - origin[1],
+    //                                     new_to_state[2] - origin[2]);
+    //         double direction_norm = direction.norm();
+
+    //         // Duplicate edges are avoided within the function
+    //         new_graph_->addEdgeMerging(new_from, new_to, direction_norm);
+    //     }
+    // }
+
+    // Fix error merge
     for (const auto& [old_id, old_vertex] : global_graph_manager_->vertices_map_) {
+        auto it_from = old_to_new_vertex.find(old_id);
+        if (it_from == old_to_new_vertex.end()) {
+            ROS_WARN("Old vertex %d has no merged representative, skipping its edges", old_id);
+            continue;
+        }
+        Vertex* new_from = it_from->second;
+
         std::vector<int> neighbours;
         global_graph_manager_->getAdjacentVertices(old_vertex, neighbours);
         for (int neigh_id : neighbours) {
-            Vertex* new_from = old_to_new_vertex[old_id];
-            Vertex* new_to   = old_to_new_vertex[neigh_id];
-
-            // Avoid self-loops (same merged group)
-            if (new_from->id == new_to->id){
+            auto it_to = old_to_new_vertex.find(neigh_id);
+            if (it_to == old_to_new_vertex.end()) {
+                ROS_WARN("Neighbour %d of vertex %d has no merged representative, edge skipped",
+                        neigh_id, old_id);
                 continue;
             }
+            Vertex* new_to = it_to->second;
 
-            StateVec new_to_state = new_to->state;
-            Eigen::Vector3d origin(new_from->state[0], new_from->state[1],
-                        new_from->state[2]);
-            Eigen::Vector3d direction(new_to_state[0] - origin[0], new_to_state[1] - origin[1],
-                                        new_to_state[2] - origin[2]);
-            double direction_norm = direction.norm();
+            // Avoid self-loops (same merged group)
+            if (new_from->id == new_to->id) continue;
 
-            // Duplicate edges are avoided within the function
-            new_graph_->addEdgeMerging(new_from, new_to, direction_norm);
+            Eigen::Vector3d origin(new_from->state[0], new_from->state[1], new_from->state[2]);
+            Eigen::Vector3d direction(new_to->state[0] - origin[0],
+                                    new_to->state[1] - origin[1],
+                                    new_to->state[2] - origin[2]);
+            new_graph_->addEdgeMerging(new_from, new_to, direction.norm());
         }
     }
+
+// Fix error merge
 
     int final_num_vertices = new_graph_->getNumVertices();
     ROS_INFO("Graph merging process completed. Final number of vertices: %d", final_num_vertices);

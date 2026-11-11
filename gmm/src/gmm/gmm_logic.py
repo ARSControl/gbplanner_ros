@@ -5,6 +5,7 @@ from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 from planner_msgs.msg import Graph, Vertex, Edge
 
+
 class Vertex(): 
     def __init__(self, index, x, y, z,):
         self.id = index

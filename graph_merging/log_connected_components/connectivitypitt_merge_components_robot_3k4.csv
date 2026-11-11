@@ -1,0 +1,8 @@
+timestamp,robot_id,merge_type,vertices_before,components_before,largest_before,vertices_after,components_after,largest_after,components_delta,connectivity_worsened
+2026-11-11 15:28:41,3,self_merge,457,1,457,360,1,360,0,NO
+2026-11-11 15:32:27,3,self_merge,907,1,907,664,1,664,0,NO
+2026-11-11 15:35:29,3,two_robot_merge,2345,3,1187,1755,1,1755,-2,NO
+2026-11-11 15:36:19,3,self_merge,1817,1,1817,1558,1,1558,0,NO
+2026-11-11 15:40:17,3,self_merge,2541,1,2541,2136,1,2136,0,NO
+2026-11-11 15:44:02,3,self_merge,2656,1,2656,2249,1,2249,0,NO
+2026-11-11 15:47:21,3,self_merge,3014,1,3014,2585,1,2585,0,NO

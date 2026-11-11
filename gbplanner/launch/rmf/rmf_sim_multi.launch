@@ -6,14 +6,26 @@
   
   <!-- All settings -->
   <arg name="robots_config_file" default="$(find gbplanner)/config/robots.yaml"/>
-  <arg name="gazebo_gui_en" default="true"/>
+  <arg name="gazebo_gui_en" default="false"/>
   <arg name="use_sim_time" default="true"/>
-  <arg name="rviz_en" default="true" />
+  <arg name="rviz_en" default="false" />
   <arg name="launch_prefix" default=""/> <!-- gdb -ex run //args -->
   <!-- <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/outdoor_city.world"/> -->
   <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/pittsburgh_mine.world"/>
   <!-- <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/darpa_cave_01.world"/> -->
+  <!-- <arg name="world_file" default="$(find planner_gazebo_sim)/worlds/edgar_mine.world"/> -->
+  <!-- <arg name="world_file" default="$(find planner_gazebo_sim)/gazebo_models_worlds_collection/worlds/baylands.world"/>  -->
   <arg name="rviz_config_file" default="$(find gbplanner)/config/rviz/rmf_obelix.rviz"/>
+
+  <!-- Inter-robot communication trigger settings -->
+  <arg name="communication_threshold" default="10.0"/>
+  <arg name="cooldown_time" default="30.0"/>
+  <arg name="comm_update_period" default="0.1"/>
+  <arg name="comm_odometry_topic" default="odometry_sensor1/odometry"/>
+
+  <!-- Added for ablation study -->
+  <arg name="gmm_components" default="6"/>
+  <param name="gmm_components" value="$(arg gmm_components)" type="int"/>
   
   <param name="use_sim_time" value="$(arg use_sim_time)"/>
 
@@ -35,8 +47,20 @@
   </include>
 
   <!-- Spawn robots dynamically -->
-  <node pkg="gbplanner" type="spawn_robots.py" name="spawn_robots" output="screen" required="true">
+  <node pkg="gbplanner" type="spawn_robots_ablation_study.py" name="spawn_robots" output="screen" required="true">
     <param name="launch_prefix" value="$(arg launch_prefix)"/>
+  </node>
+  
+  <!-- Inter-robot communication monitor (global, single instance).
+       Detects when two robots are within range and publishes CommunicationTrigger,
+       which kicks off the graph exchange + GMM filtering + graph merging pipeline.
+       Must run here (after robots_config is loaded) and NOT inside a robot namespace,
+       because it builds absolute /<robot>/... topic names and reads /robots_config/robots. -->
+  <node pkg="communication_range" type="communication_node.py" name="communication_node" output="screen">
+    <param name="communication_threshold" value="$(arg communication_threshold)"/>
+    <param name="cooldown_time" value="$(arg cooldown_time)"/>
+    <param name="update_period" value="$(arg comm_update_period)"/>
+    <param name="odometry_topic" value="$(arg comm_odometry_topic)"/>
   </node>
 
   <!-- RViz (single instance) - use original static config -->

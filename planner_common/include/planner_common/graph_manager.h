@@ -39,10 +39,22 @@ class GraphManager {
   // Getting the vertices vertex v is connected via and edge (ARS contol)
   void getAdjacentVertices(Vertex* v, std::vector<int>& adjacent_vertices);
 
-  int getNumVertices() { return graph_->getNumVertices(); }
+  // int getNumVertices() { return graph_->getNumVertices(); }
+  // Fix error merge
+  int getNumVertices() { return vertices_map_.size(); }
+  // Fix error merge
+
   int getNumEdges() { return graph_->getNumEdges(); }
 
-  Vertex* getVertex(int id) { return vertices_map_[id]; }
+  // Vertex* getVertex(int id) { return vertices_map_[id]; }
+
+  // Fix error merge
+  Vertex* getVertex(int id) {
+    auto it = vertices_map_.find(id);
+    return it == vertices_map_.end() ? nullptr : it->second;
+  }
+  // Fix error merge
+
   void getLeafVertices(std::vector<Vertex*>& leaf_vertices);
   void findLeafVertices(const ShortestPathsReport& rep);
 

@@ -10,28 +10,41 @@ GraphManager::GraphManager() {
   reset();
 }
 
+// void GraphManager::reset() {
+//   // Reset kdtree first.
+//   if (kd_tree_) kd_free(kd_tree_);
+//   kd_tree_ = kd_create(3);
+
+//   // Reset graph.
+//   graph_.reset(new Graph());
+
+//   // Vertex mapping.
+//   // Clear memory for all vertex pointers
+//   if (vertices_map_.size() > 0) {
+//     for (int i = 0; i < vertices_map_.size(); ++i) {
+//       delete vertices_map_[i];
+//     }
+//   }
+//   vertices_map_.clear();
+//   edge_map_.clear();
+
+//   // Other params.
+//   subgraph_ind_ = -1;
+//   id_count_ = -1;
+// }
+
+// Fix error merge
 void GraphManager::reset() {
-  // Reset kdtree first.
   if (kd_tree_) kd_free(kd_tree_);
   kd_tree_ = kd_create(3);
-
-  // Reset graph.
   graph_.reset(new Graph());
-
-  // Vertex mapping.
-  // Clear memory for all vertex pointers
-  if (vertices_map_.size() > 0) {
-    for (int i = 0; i < vertices_map_.size(); ++i) {
-      delete vertices_map_[i];
-    }
-  }
+  for (auto& kv : vertices_map_) delete kv.second;   // prima: for i<size, vertices_map_[i]
   vertices_map_.clear();
   edge_map_.clear();
-
-  // Other params.
   subgraph_ind_ = -1;
   id_count_ = -1;
 }
+// Fix error merge
 
 // Function for getting the vertices vertex v is connected via and edge
 void GraphManager::getAdjacentVertices(Vertex* v, std::vector<int>& adjacent_vertices){
@@ -50,23 +63,48 @@ void GraphManager::getAdjacentVertices(Vertex* v, std::vector<int>& adjacent_ver
   }
 }
 
+// void GraphManager::addVertex(Vertex* v) {
+//   // Add the vertex to the kdtree for neighbour search
+//   kd_insert3(kd_tree_, v->state.x(), v->state.y(), v->state.z(), v);
+//   if (v->id == 0){
+//     graph_->addSourceVertex(0);
+//   }
+//   else{
+//     graph_->addVertex(v->id);
+//   }
+//   vertices_map_[v->id] = v;
+// }
+
+// Fix error merge
 void GraphManager::addVertex(Vertex* v) {
-  // Add the vertex to the kdtree for neighbour search
+  if (vertices_map_.count(v->id)) {
+    ROS_ERROR("[GraphManager] addVertex: duplicate id %d, ignored", v->id);
+    return;
+  }
   kd_insert3(kd_tree_, v->state.x(), v->state.y(), v->state.z(), v);
-  if (v->id == 0){
-    graph_->addSourceVertex(0);
-  }
-  else{
-    graph_->addVertex(v->id);
-  }
+  if (v->id == 0) graph_->addSourceVertex(0);
+  else            graph_->addVertex(v->id);
   vertices_map_[v->id] = v;
 }
+// Fix error merge
 
+// void GraphManager::addEdge(Vertex* v, Vertex* u, double weight) {
+//   graph_->addEdge(v->id, u->id, weight);
+//   edge_map_[v->id].push_back(std::make_pair(u->id, weight));
+//   edge_map_[u->id].push_back(std::make_pair(v->id, weight));
+// }
+
+// Fix error merge
 void GraphManager::addEdge(Vertex* v, Vertex* u, double weight) {
+  if (!v || !u || !vertices_map_.count(v->id) || !vertices_map_.count(u->id)) {
+    ROS_WARN("[GraphManager] addEdge: missing vertex, edge skipped");
+    return;
+  }
   graph_->addEdge(v->id, u->id, weight);
   edge_map_[v->id].push_back(std::make_pair(u->id, weight));
   edge_map_[u->id].push_back(std::make_pair(v->id, weight));
 }
+// Fix error emrge
 
 void GraphManager::removeEdge(Vertex* v, Vertex* u) {
   graph_->removeEdge(v->id, u->id);
@@ -256,6 +294,47 @@ void GraphManager::getShortestPath(int target_id,
   }
 }
 
+// void GraphManager::getShortestPath(int target_id,
+//                                    const ShortestPathsReport& rep,
+//                                    bool source_to_target_order,
+//                                    std::vector<int>& path) {
+//   path.clear();
+//   if (!rep.status) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Shortest paths report is not valid");
+//     return;
+//   }
+
+//   if (rep.parent_id_map.size() <= target_id) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertext with ID [%d] doesn't exist in the graph", target_id);
+//     return;
+//   }
+
+//   if (target_id == rep.source_id) {
+//     path.push_back(target_id);
+//     return;
+//   }
+
+//   int parent_id = rep.parent_id_map.at(target_id);
+//   if (parent_id == target_id) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertex with ID [%d] is isolated from the graph", target_id);
+//     return;
+//   }
+
+//   path.push_back(target_id);  // current vertex id first
+//   path.push_back(
+//       parent_id);  // its first parent, the rest is recursively looked up
+//   while (parent_id != rep.source_id) {
+//     parent_id = rep.parent_id_map.at(parent_id);
+//     path.push_back(parent_id);
+//   }
+
+//   // Initially, the path follows target to source order. Reverse if required.
+//   if (source_to_target_order) {
+//     std::reverse(path.begin(), path.end());
+//   }
+// }
+
+// Fix error merge
 void GraphManager::getShortestPath(int target_id,
                                    const ShortestPathsReport& rep,
                                    bool source_to_target_order,
@@ -266,7 +345,7 @@ void GraphManager::getShortestPath(int target_id,
     return;
   }
 
-  if (rep.parent_id_map.size() <= target_id) {
+  if (!rep.parent_id_map.count(target_id)) {
     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertext with ID [%d] doesn't exist in the graph", target_id);
     return;
   }
@@ -295,7 +374,25 @@ void GraphManager::getShortestPath(int target_id,
     std::reverse(path.begin(), path.end());
   }
 }
+// Fix error merge
 
+// double GraphManager::getShortestDistance(int target_id,
+//                                          const ShortestPathsReport& rep) {
+//   double dist = std::numeric_limits<double>::max();
+
+//   if (!rep.status) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Shortest paths report is not valid");
+//     return dist;
+//   }
+//   if (rep.parent_id_map.size() <= target_id) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertex with ID [%d] doesn't exist in the graph", target_id);
+//     return dist;
+//   }
+//   dist = rep.distance_map.at(target_id);
+//   return dist;
+// }
+
+// Fix error merge
 double GraphManager::getShortestDistance(int target_id,
                                          const ShortestPathsReport& rep) {
   double dist = std::numeric_limits<double>::max();
@@ -304,14 +401,31 @@ double GraphManager::getShortestDistance(int target_id,
     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Shortest paths report is not valid");
     return dist;
   }
-  if (rep.parent_id_map.size() <= target_id) {
+  if (!rep.parent_id_map.count(target_id)) {
     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertex with ID [%d] doesn't exist in the graph", target_id);
     return dist;
   }
   dist = rep.distance_map.at(target_id);
   return dist;
 }
+// Fix error merge
 
+// int GraphManager::getParentIDFromShortestPath(int target_id,
+//                                               const ShortestPathsReport& rep) {
+//   if (!rep.status) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Shortest paths report is not valid");
+//     return target_id;
+//   }
+
+//   if (rep.parent_id_map.size() <= target_id) {
+//     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertex with ID [%d] doesn't exist in the graph", target_id);
+//     return target_id;
+//   }
+
+//   return rep.parent_id_map.at(target_id);
+// }
+
+// Fix error merge
 int GraphManager::getParentIDFromShortestPath(int target_id,
                                               const ShortestPathsReport& rep) {
   if (!rep.status) {
@@ -319,29 +433,50 @@ int GraphManager::getParentIDFromShortestPath(int target_id,
     return target_id;
   }
 
-  if (rep.parent_id_map.size() <= target_id) {
+  if (!rep.parent_id_map.count(target_id)) {
     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Vertex with ID [%d] doesn't exist in the graph", target_id);
     return target_id;
   }
 
   return rep.parent_id_map.at(target_id);
 }
+// Fix error merge
+// void GraphManager::getLeafVertices(std::vector<Vertex*>& leaf_vertices) {
+//   leaf_vertices.clear();
+//   for (int id = 0; id < getNumVertices(); ++id) {
+//     Vertex* v = getVertex(id);
+//     if (v->is_leaf_vertex) leaf_vertices.push_back(v);
+//   }
+// }
 
+// Fix error merge
 void GraphManager::getLeafVertices(std::vector<Vertex*>& leaf_vertices) {
   leaf_vertices.clear();
   for (int id = 0; id < getNumVertices(); ++id) {
     Vertex* v = getVertex(id);
-    if (v->is_leaf_vertex) leaf_vertices.push_back(v);
+    if (v && v->is_leaf_vertex) leaf_vertices.push_back(v);
   }
 }
+// Fix error merge
 
+// void GraphManager::findLeafVertices(const ShortestPathsReport& rep) {
+//   int num_vertices = getNumVertices();
+//   for (int id = 0; id < num_vertices; ++id) {
+//     int pid = getParentIDFromShortestPath(id, rep);
+//     getVertex(pid)->is_leaf_vertex = false;
+//   }
+// }
+
+// Fix error merge
 void GraphManager::findLeafVertices(const ShortestPathsReport& rep) {
   int num_vertices = getNumVertices();
   for (int id = 0; id < num_vertices; ++id) {
     int pid = getParentIDFromShortestPath(id, rep);
-    getVertex(pid)->is_leaf_vertex = false;
+    Vertex* p = getVertex(pid);
+    if (p) p->is_leaf_vertex = false;
   }
 }
+// Fix error merge
 
 int GraphManager::generateSubgraphIndex() { return ++subgraph_ind_; }
 
@@ -390,33 +525,63 @@ void GraphManager::convertGraphToMsg(planner_msgs::Graph& graph_msg) {
   }
 }
 
-void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
-  // Add all the vertices first
+// void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
+//   // Add all the vertices first
 
+//   for (auto& v : graph_msg.vertices) {
+//     generateVertexID();  // must call this one to increase the count inside
+//     StateVec state;
+//     state[0] = v.pose.position.x;
+//     state[1] = v.pose.position.y;
+//     state[2] = v.pose.position.z;
+//     state[3] = tf::getYaw(v.pose.orientation);
+//     Vertex* vertex = new Vertex(v.id, state);
+
+//     // Copy other info
+//     vertex->vol_gain.num_unknown_voxels = v.num_unknown_voxels;
+//     vertex->vol_gain.num_occupied_voxels = v.num_occupied_voxels;
+//     vertex->vol_gain.num_free_voxels = v.num_free_voxels;
+//     vertex->vol_gain.is_frontier = v.is_frontier;
+//     if (v.is_frontier) vertex->type = VertexType::kFrontier;
+//     addVertex(vertex);
+//   }
+
+//   // Add all edges
+//   for (auto& e : graph_msg.edges) {
+//     addEdge(getVertex(e.source_id), getVertex(e.target_id), e.weight);
+//   }
+  
+// }
+
+// Fix error merge
+void GraphManager::convertMsgToGraph(const planner_msgs::Graph& graph_msg) {
+  int max_id = id_count_;
   for (auto& v : graph_msg.vertices) {
-    generateVertexID();  // must call this one to increase the count inside
+    if (vertices_map_.count(v.id)) continue;
     StateVec state;
     state[0] = v.pose.position.x;
     state[1] = v.pose.position.y;
     state[2] = v.pose.position.z;
     state[3] = tf::getYaw(v.pose.orientation);
     Vertex* vertex = new Vertex(v.id, state);
-
-    // Copy other info
-    vertex->vol_gain.num_unknown_voxels = v.num_unknown_voxels;
+    vertex->vol_gain.num_unknown_voxels  = v.num_unknown_voxels;
     vertex->vol_gain.num_occupied_voxels = v.num_occupied_voxels;
-    vertex->vol_gain.num_free_voxels = v.num_free_voxels;
-    vertex->vol_gain.is_frontier = v.is_frontier;
+    vertex->vol_gain.num_free_voxels     = v.num_free_voxels;
+    vertex->vol_gain.is_frontier         = v.is_frontier;
     if (v.is_frontier) vertex->type = VertexType::kFrontier;
     addVertex(vertex);
+    max_id = std::max(max_id, (int)v.id);
   }
+  id_count_ = max_id;   // il contatore segue l'ID massimo, non il numero di vertici
 
-  // Add all edges
   for (auto& e : graph_msg.edges) {
-    addEdge(getVertex(e.source_id), getVertex(e.target_id), e.weight);
+    Vertex* a = getVertex(e.source_id);
+    Vertex* b = getVertex(e.target_id);
+    if (!a || !b) { ROS_WARN("convertMsgToGraph: edge with missing vertex"); continue; }
+    addEdge(a, b, e.weight);
   }
-  
 }
+// Fix error merge
 
 void GraphManager::saveGraph(const std::string& path) {
   // Convert data to the msg type first

@@ -14,8 +14,8 @@ RobotParams:
   safety_extension:   [3.0, 4.0, 3.0] # Safety extension outside the bounding box of a path segment used to improve it by pushing it away from obstacles
 
   # Melo
-  nominal_flight_height : 0.5 # Nominal flight height for robot 0
-  delta_factor: 0.5 # Offset factor which will be multiplied by robot_id and added to nominal_flight_height
+  nominal_flight_height : 0.3 # Nominal flight height for robot 0
+  delta_factor: 0.3 # Offset factor which will be multiplied by robot_id and added to nominal_flight_height
 #-------------------------------------------------------------------------------
 # SENSOR CONFIGURATION
 #  sensor_list: Define a set of sensors relevant to the exploration task.

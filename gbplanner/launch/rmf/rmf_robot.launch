@@ -14,6 +14,11 @@
   <arg name="launch_prefix" default=""/>
   <arg name="use_sim_time" default="true"/>
 
+  <!-- Addedo for ablation study -->
+  <arg name="gmm_components" default="6"/>
+  <arg name="run_tag" default="k$(arg gmm_components)"/>
+  
+
   <!-- ARS Control -->
   <!-- <arg name="num_robots"/> -->
 
@@ -113,21 +118,24 @@
   <group ns="$(arg robot_name)">
     <node pkg="graph_merging" type="merging_node" name="merging_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
     <rosparam command="load" file="$(arg gbplanner_config_file)" />
+    <param name="gmm_components" value="$(arg gmm_components)"/>
     </node>
   </group>
   
   <!-- Gaussian Mixture Model node -->
   <group ns="$(arg robot_name)">
     <node pkg="gmm" type="gmm_node.py" name="gmm_node" output="screen" launch-prefix="$(arg launch_prefix)" respawn="true">
+    <param name="n_components" value="$(arg gmm_components)"/>
+    <param name="timing_log_dir" value="/root/gbplanner2_ws/src/exploration/gbplanner_ros/gmm/logs"/>
     </node>
   </group>
 
   <group ns="$(arg robot_name)">
     <node pkg="visualization_tools" type="visualization_tools" name="visualization_tools_node" output="screen">
-      <param name="metricFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_metrics" />
-      <param name="trajFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_trajectory" />
-      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/pitt_$(arg robot_name)_multiple_merge_global_graph_size" />
-      <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_multiple_merge_global_graph_size" />
+      <param name="metricFile" type="string" value="$(find visualization_tools)/log/connectivitypitt_$(arg robot_name)_our_ablation_$(arg run_tag)_metrics" />
+      <param name="trajFile" type="string" value="$(find visualization_tools)/log/connectivitypitt_$(arg robot_name)_our_ablation_$(arg run_tag)_trajectory" />
+      <param name="globalGraphSizeFile" type="string" value="$(find visualization_tools)/log/connectivitypitt_$(arg robot_name)_our_ablation_$(arg run_tag)_global_graph_size" />
+      <!-- <param name="mapFile" type="string" value="$(find visualization_tools)/map/pitt_$(arg robot_name)_multiple_merge_global_graph_size" /> -->
 
       <param name="overallMapVoxelSize" type="double" value="0.5" />
       <param name="exploredAreaVoxelSize" type="double" value="0.3" />

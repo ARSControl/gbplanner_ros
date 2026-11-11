@@ -6,28 +6,54 @@
 Graph::Graph() {}
 Graph::~Graph() {}
 
+// Graph::VertexDescriptor Graph::addSourceVertex(int id) {
+//   source_ = boost::add_vertex(id, graph_);
+//   vertex_descriptors_[id] = source_;
+//   return source_;
+// }
+
+// Fix error merge
 Graph::VertexDescriptor Graph::addSourceVertex(int id) {
+  auto it = vertex_descriptors_.find(id);
+  if (it != vertex_descriptors_.end()) { source_ = it->second; return source_; }
   source_ = boost::add_vertex(id, graph_);
   vertex_descriptors_[id] = source_;
   return source_;
 }
+// Fix error merge
 
 Graph::VertexDescriptor Graph::addVertex(int id) {
+  auto it = vertex_descriptors_.find(id);
+  if (it != vertex_descriptors_.end()) return it->second;
   VertexDescriptor v = boost::add_vertex(id, graph_);
   vertex_descriptors_[id] = v;
   return v;
 }
+// Fix error merge
 
+// Graph::EdgeDescriptorPair Graph::addEdge(int u_id, int v_id, double weight) {
+//   if (vertex_descriptors_.find(u_id) == vertex_descriptors_.end()) {
+//     addVertex(u_id);
+//   }
+//   if (vertex_descriptors_.find(v_id) == vertex_descriptors_.end()) {
+//     addVertex(v_id);
+//   }
+//   return boost::add_edge(vertex_descriptors_[u_id], vertex_descriptors_[v_id],
+//                          weight, graph_);
+// }
+
+// Fix error merge
 Graph::EdgeDescriptorPair Graph::addEdge(int u_id, int v_id, double weight) {
-  if (vertex_descriptors_.find(u_id) == vertex_descriptors_.end()) {
-    addVertex(u_id);
+  auto iu = vertex_descriptors_.find(u_id);
+  auto iv = vertex_descriptors_.find(v_id);
+  if (iu == vertex_descriptors_.end() || iv == vertex_descriptors_.end()) {
+    std::cout << "[Graph] addEdge: missing vertex (" << u_id << ", " << v_id
+              << "), edge skipped" << std::endl;
+    return Graph::EdgeDescriptorPair();
   }
-  if (vertex_descriptors_.find(v_id) == vertex_descriptors_.end()) {
-    addVertex(v_id);
-  }
-  return boost::add_edge(vertex_descriptors_[u_id], vertex_descriptors_[v_id],
-                         weight, graph_);
+  return boost::add_edge(iu->second, iv->second, weight, graph_);
 }
+// Fix error merge
 
 void Graph::removeEdge(int u_id, int v_id) {
   if (vertex_descriptors_.find(u_id) == vertex_descriptors_.end()) {
@@ -48,11 +74,53 @@ void Graph::removeVertex(int u_id) {
   boost::remove_vertex(vertex_descriptors_[u_id], graph_);
 }
 
+// Fix error merge
+// void Graph::removeVertex(int u_id) {
+//   auto it = vertex_descriptors_.find(u_id);
+//   if (it == vertex_descriptors_.end()) return;
+//   VertexDescriptor d = it->second;
+//   boost::clear_vertex(d, graph_);
+//   boost::remove_vertex(d, graph_);
+//   vertex_descriptors_.erase(it);
+//   index_to_id_.erase(index_to_id_.begin() + d);
+//   for (size_t i = d; i < index_to_id_.size(); ++i)
+//     vertex_descriptors_[index_to_id_[i]] = i;
+// }
+// Fix error merge
+
+// bool Graph::findDijkstraShortestPaths(int src_id, ShortestPathsReport& rep) {
+//   rep.source_id = src_id;
+//   rep.status = false;
+
+//   if (vertex_descriptors_.size() <= src_id) {
+//     std::cout << "Source index [" << src_id << "] is not in the graph."
+//               << std::endl;
+//     return false;
+//   }
+
+//   std::vector<VertexDescriptor> shortest_paths;
+//   std::vector<double> shortest_distances;
+//   if (findDijkstraShortestPaths(vertex_descriptors_[src_id], shortest_paths,
+//                                 shortest_distances)) {
+//     rep.status = true;
+//     rep.parent_id_map.clear();
+//     rep.distance_map.clear();
+//     int num_vertices = getNumVertices();
+//     for (int ind = 0; ind < num_vertices; ++ind) {
+//       rep.parent_id_map[ind] = getVertexID(shortest_paths[ind]);
+//       rep.distance_map[ind] = shortest_distances[ind];
+//     }
+//   }
+
+//   return rep.status;
+// }
+
+// Fix error merge
 bool Graph::findDijkstraShortestPaths(int src_id, ShortestPathsReport& rep) {
   rep.source_id = src_id;
   rep.status = false;
 
-  if (vertex_descriptors_.size() <= src_id) {
+  if (vertex_descriptors_.find(src_id) == vertex_descriptors_.end()) {
     std::cout << "Source index [" << src_id << "] is not in the graph."
               << std::endl;
     return false;
@@ -74,6 +142,7 @@ bool Graph::findDijkstraShortestPaths(int src_id, ShortestPathsReport& rep) {
 
   return rep.status;
 }
+// Fix error merge
 
 bool Graph::findDijkstraShortestPaths(
     VertexDescriptor& source, std::vector<VertexDescriptor>& shortest_paths,
@@ -101,6 +170,10 @@ bool Graph::findDijkstraShortestPaths(
 int Graph::getVertexID(VertexDescriptor v) {
   return boost::get(boost::get(boost::vertex_index, graph_), v);
 }
+
+// Fix error merge
+// int Graph::getVertexID(VertexDescriptor v) { return index_to_id_[v]; }
+// Fix error merge
 
 int Graph::getNumVertices() { return boost::num_vertices(graph_); }
 

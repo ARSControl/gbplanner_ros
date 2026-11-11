@@ -8,7 +8,46 @@
 #       base_name: Base name for config directory (e.g., "rmf_obelix" uses config/rmf_obelix/)
 #       x, y, z: Initial spawn position in Gazebo world (meters)
 
-# Configuration for pittsburgh mine
+# Configuration for baylands
+# robots:
+#   - name: rmf_obelix_1
+#     base_name: rmf_obelix
+#     x: 0.0
+#     y: 0.0
+#     z: 0.5
+  
+#   - name: rmf_obelix_2
+#     base_name: rmf_obelix
+#     x: 64.0
+#     y: -112.0
+#     z: 0.5
+  
+#   # Uncomment to add more robots:
+#   - name: rmf_obelix_3
+#     base_name: rmf_obelix
+#     x: 73.0
+#     y: 77.0
+#     z: 0.5
+
+  # - name: rmf_obelix_4
+  #   base_name: rmf_obelix
+  #   x: 163.3
+  #   y: -31.0
+  #   z: 0.5
+
+  # - name: rmf_obelix_5
+  #   base_name: rmf_obelix
+  #   x: 163.3
+  #   y: -31.0
+  #   z: 0.5
+
+  # - name: rmf_obelix_6
+  #   base_name: rmf_obelix
+  #   x: 163.3
+  #   y: -31.0
+  #   z: 0.5
+
+# Configuration for pitt mine
 robots:
   - name: rmf_obelix_1
     base_name: rmf_obelix
@@ -19,7 +58,7 @@ robots:
   - name: rmf_obelix_2
     base_name: rmf_obelix
     x: 20.2
-    y: 13.0
+    y: 12.0
     z: 0.5
   
   # Uncomment to add more robots:
@@ -28,27 +67,6 @@ robots:
     x: -16.3
     y: 15.0
     z: 0.5
-
-# # Configuration for darpa cave
-# robots:
-#   - name: rmf_obelix_1
-#     base_name: rmf_obelix
-#     x: 0.0
-#     y: 0.0
-#     z: 0.5
-  
-#   - name: rmf_obelix_2
-#     base_name: rmf_obelix
-#     x: 150.0
-#     y: -235.0
-#     z: 20.2
-  
-#   # Uncomment to add more robots:
-#   - name: rmf_obelix_3
-#     base_name: rmf_obelix
-#     x: 535.0
-#     y: 25.0
-#     z: -29.0
 
 
 

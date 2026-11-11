@@ -218,6 +218,17 @@ void Rrg::mergedGraphCallback(const planner_msgs::Graph& graph_msg) {
   ROS_INFO("[%d] Received merged global graph msg with %zu nodes and %zu edges", robot_id, graph_msg.vertices.size(), graph_msg.edges.size());
 
   global_graph_->reset();
+  // Fix error merge
+  robot_backtracking_prev_ = NULL;                          // puntava a un vertice appena eliminato
+  std::queue<StateVec>().swap(robot_backtracking_queue_);   // svuota la coda
+  global_exploration_ongoing_ = false;                      // current_global_vertex_id_ non è più valido
+  global_graph_->convertMsgToGraph(graph_msg);
+
+  if (global_graph_->graph_->getNumVertices() != global_graph_->getNumVertices())
+    ROS_ERROR("[%d] GRAPH INCONSISTENT: boost=%d map=%d", robot_id,
+              global_graph_->graph_->getNumVertices(), global_graph_->getNumVertices());
+  // Fix error merge
+  
   ROS_INFO("Converting the message into a graph...");
   global_graph_->convertMsgToGraph(graph_msg);
   ROS_INFO("Graph correctly converted!");
@@ -1215,20 +1226,32 @@ Rrg::GraphStatus Rrg::buildGraph() {
 
   local_exploration_ongoing_ = true;
 
+  // if (global_exploration_ongoing_) {
+  //   Vertex* global_vertex = global_graph_->getVertex(current_global_vertex_id_);
+  //   // Global repositioning stopped in between
+  //   if ((current_state_.head(3) - global_vertex->state.head(3)).norm() > 5.0) {
+  //     ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Global frontier not reached. Triggering global planner again");
+  //     local_exploration_ongoing_ = false;
+  //     return GraphStatus::NOT_OK;
+  //   }
+  //   // Global repositioning complete
+  //   else {
+  //     global_exploration_ongoing_ = false;
+  //   }
+  // }
+
+  // Fix error merge
   if (global_exploration_ongoing_) {
     Vertex* global_vertex = global_graph_->getVertex(current_global_vertex_id_);
-    // Global repositioning stopped in between
-    if ((current_state_.head(3) - global_vertex->state.head(3)).norm() > 5.0) {
+    if (!global_vertex) { global_exploration_ongoing_ = false; }
+    else if ((current_state_.head(3) - global_vertex->state.head(3)).norm() > 5.0) {
       ROS_WARN_COND(global_verbosity >= Verbosity::WARN, "Global frontier not reached. Triggering global planner again");
       local_exploration_ongoing_ = false;
       return GraphStatus::NOT_OK;
     }
-    // Global repositioning complete
-    else {
-      global_exploration_ongoing_ = false;
-    }
+    else { global_exploration_ongoing_ = false; }
   }
-
+  // Fix error merge
   if (planning_params_.type == PlanningModeType::kAdaptiveExploration) {
     // 1. Construct the box
     Eigen::Vector3d min_val, max_val, rotations, mean_val, std_val;
@@ -2000,11 +2023,22 @@ void Rrg::addFrontiers(int best_vertex_id) {
   if (update_global_frontiers) {
     std::vector<Vertex*> global_frontiers;
     int num_vertices = global_graph_->getNumVertices();
+    // for (int id = 0; id < num_vertices; ++id) {
+    //   if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
+    //     global_frontiers.push_back(global_graph_->getVertex(id));
+    //   }
+    // }
+    
+    // Fix error merge
     for (int id = 0; id < num_vertices; ++id) {
-      if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
-        global_frontiers.push_back(global_graph_->getVertex(id));
+      Vertex* v = global_graph_->getVertex(id);
+      if (!v) {continue; }
+      if (v->type == VertexType::kFrontier) {
+        global_frontiers.push_back(v);
       }
     }
+    // Fix error merge
+
     ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Have %d frontiers from global graph.",
              (int)global_frontiers.size());
     for (auto& v : global_frontiers) {
@@ -2145,19 +2179,28 @@ void Rrg::expandGlobalGraphTimerCallback(const ros::TimerEvent& event) {
     }
   }
 
+  // // Take the unvisited vertices of the global graph
+  // std::vector<Vertex*> unvisited_vertices;
+  // int global_graph_size = global_graph_->getNumVertices();
+  // for (int id = 0; id < global_graph_size; ++id) {  
+  //   if(!global_graph_->getVertex(id)){
+  //     ROS_ERROR("Vertex %d is NULL!", id);
+  //   }  
+  //   if (global_graph_->getVertex(id)->type == VertexType::kUnvisited) {
+  //     unvisited_vertices.push_back(global_graph_->getVertex(id));
+  //   }
+  // }
+  
+  // Fix error merge
   // Take the unvisited vertices of the global graph
   std::vector<Vertex*> unvisited_vertices;
   int global_graph_size = global_graph_->getNumVertices();
   for (int id = 0; id < global_graph_size; ++id) {  
-    if(!global_graph_->getVertex(id)){
-      ROS_ERROR("Vertex %d is NULL!", id);
-    }  
-    if (global_graph_->getVertex(id)->type == VertexType::kUnvisited) {
-      unvisited_vertices.push_back(global_graph_->getVertex(id));
-    } else{
-    }
+    Vertex* v = global_graph_->getVertex(id);
+    if (!v) { ROS_ERROR("Vertex %d is NULL!", id); continue; }
+    if (v->type == VertexType::kUnvisited) unvisited_vertices.push_back(v);
   }
-  
+  // Fix error merge
   // Melo
   // for (const auto& vertex : global_graph_->vertices_map_) {  
   //   if(!vertex.second){
@@ -5219,9 +5262,23 @@ std::vector<geometry_msgs::Pose> Rrg::runGlobalPlanner(int vertex_id,
   int num_vertices = global_graph_->getNumVertices();
   ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Re-check all frontiers.");
   global_frontiers.clear();
+  // for (int id = 0; id < num_vertices; ++id) {
+  //   if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
+  //     Vertex* v = global_graph_->getVertex(id);
+  //     // computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
+  //     computeVolumetricGainRayModelNoBoundMelo(v->state, v->vol_gain); // Melo
+  //     if (!v->vol_gain.is_frontier)
+  //       v->type = VertexType::kUnvisited;
+  //     else
+  //       global_frontiers.push_back(global_graph_->getVertex(id));
+  //   }
+  // }
+
+  // Fix error merge
   for (int id = 0; id < num_vertices; ++id) {
-    if (global_graph_->getVertex(id)->type == VertexType::kFrontier) {
-      Vertex* v = global_graph_->getVertex(id);
+    Vertex* v = global_graph_->getVertex(id);
+    if (!v) {continue;}
+    if (v->type == VertexType::kFrontier) {
       // computeVolumetricGainRayModelNoBound(v->state, v->vol_gain);
       computeVolumetricGainRayModelNoBoundMelo(v->state, v->vol_gain); // Melo
       if (!v->vol_gain.is_frontier)
@@ -5230,6 +5287,7 @@ std::vector<geometry_msgs::Pose> Rrg::runGlobalPlanner(int vertex_id,
         global_frontiers.push_back(global_graph_->getVertex(id));
     }
   }
+  // Fix error merge
   ROS_INFO_COND(global_verbosity >= Verbosity::INFO, "Currently have %d frontiers in the global graph.",
            (int)global_frontiers.size());
   if ((!not_check_frontier) && (global_frontiers.size() <= 0)) {

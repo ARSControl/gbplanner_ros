@@ -49,7 +49,9 @@ namespace merge{
     int generateGroupID();
 
     // Merging process
-    void mergingProcess();
+    // void mergingProcess();
+
+    void mergingProcessReview(const std::string& merge_type);
 
     // Merging process removing vertices (not to use)
     void graphMergingVertexDeletion(std::unordered_map<int, std::vector<Vertex*>>& group_vertices_);
@@ -134,5 +136,7 @@ namespace merge{
     // Melo
     RobotParams robot_params_;
     int robot_id_;
+
+    int gmm_components_;
   };
 }
